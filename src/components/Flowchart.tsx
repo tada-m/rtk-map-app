@@ -111,6 +111,7 @@ export default function Flowchart({ user }: FlowchartProps) {
                   size: 2,
                   path: "straight", //grid or straight
                   endPlug: "arrow1",
+                  dropShadow: true,
                 });
                 linesRef.current.push(line);
               }
@@ -133,15 +134,20 @@ export default function Flowchart({ user }: FlowchartProps) {
     appState.units.length > 0
       ? Math.max(...appState.units.map((u) => u.PosY || 0))
       : 1;
-  const highPriorityUnits = appState.units.filter(
-    (u) =>
-      appState.unitPriorities[u.id] !== undefined &&
-      appState.unitPriorities[u.id] >= 2.0
-  );
-  let topPriorityPosY = -1;
-  if (highPriorityUnits.length > 0) {
-    topPriorityPosY = Math.min(...highPriorityUnits.map((u) => u.PosY));
-  }
+
+  // ⭐の数が最大のノードを赤く、それ以外は白
+  const unitStars: { [unitId: string]: number } = {};
+  let maxStars = 0;
+  appState.units.forEach((u) => {
+    const priority = appState.unitPriorities[u.id];
+    if (priority !== undefined && priority > 0) {
+      const stars = Math.ceil(priority);
+      unitStars[u.id] = stars;
+      if (stars > maxStars) maxStars = stars;
+    } else {
+      unitStars[u.id] = 0;
+    }
+  });
 
   return (
     <>
@@ -149,16 +155,13 @@ export default function Flowchart({ user }: FlowchartProps) {
         {appState.units.map((unit) => {
           const unitPriority = appState.unitPriorities[unit.id];
           let nodeClass = "flowchart-node";
-          if (unitPriority !== undefined) {
-            if (unitPriority >= 2.0 && unit.PosY === topPriorityPosY) {
-              nodeClass += " node-top-priority";
-            } else if (unitPriority >= 2.0) {
-              nodeClass += " node-high-priority";
-            }
+          // ⭐の数が最大のノードのみ赤、それ以外は白
+          if (unitStars[unit.id] === maxStars && maxStars > 0) {
+            nodeClass += " node-top-priority";
           }
           let priorityBadge = null;
           if (unitPriority !== undefined && unitPriority > 0) {
-            const numberOfStars = Math.round(unitPriority);
+            const numberOfStars = Math.ceil(unitPriority);
             if (numberOfStars > 0) {
               priorityBadge = (
                 <span className="priority-badge">
@@ -173,8 +176,8 @@ export default function Flowchart({ user }: FlowchartProps) {
               id={unit.id}
               className={nodeClass}
               style={{
-                left: `${(unit.PosX - 1) * 220}px`,
-                top: `${(maxPosY - unit.PosY) * 150}px`,
+                left: `${(unit.PosX - 1) * 200}px`, // 220→200
+                top: `${(maxPosY - unit.PosY) * 130}px`, // 150→130
               }}
               onClick={() => setSelectedUnitId(unit.id)}
             >

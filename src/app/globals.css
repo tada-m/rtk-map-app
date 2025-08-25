@@ -68,15 +68,15 @@ main {
   position: relative;
   width: 100%;
   height: 100%;
-  min-width: 1000px;
-  min-height: 800px;
-  padding: 2rem;
+  min-width: 800px; /* ← 1000→800 */
+  min-height: 600px; /* ← 800→600 */
+  padding: 1rem; /* ← 2rem→1rem */
   box-sizing: border-box;
 }
 /* --- ▼▼▼ 修正点: ノードのサイズを固定 ▼▼▼ --- */
 .flowchart-node {
-  width: 170px; /* 横幅を固定 */
-  height: 100px; /* 高さを固定 */
+  width: 150px; /* 横幅を固定 170px→150px */
+  height: 80px; /* 高さを固定 100px→80px */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -87,13 +87,13 @@ main {
   background-color: var(--node-bg-color);
   border: 1px solid var(--node-border-color);
   border-radius: 8px;
-  padding: 0.8rem;
+  padding: 0.6rem; /* 0.8rem→0.6rem */
   text-align: center;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease,
     background-color 0.3s ease, border-color 0.3s ease;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
-  font-size: 1rem;
+  font-size: 0.85rem; /* 1rem→0.85rem */
 }
 /* --- ▲▲▲ 修正点ここまで ▲▲▲ --- */
 .flowchart-node:hover {
@@ -109,9 +109,9 @@ main {
   border-color: var(--top-priority-border);
 }
 .priority-badge {
-  font-size: 1.1rem;
-  margin-top: 8px;
-  letter-spacing: 2px;
+  font-size: 1rem; /* 1.1rem→1.0rem */
+  margin-top: 6px; /* 8px→6px */
+  letter-spacing: 1px; /* 2px→1px */
   color: #fadb14;
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
 }

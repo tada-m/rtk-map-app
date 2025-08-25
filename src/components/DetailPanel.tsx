@@ -10,7 +10,7 @@ import {
 } from "firebase/firestore";
 import { User } from "firebase/auth";
 import { db } from "../firebase/clientApp";
-import { AppState, ProblemRecord } from "./Flowchart"; // Flowchart.tsxから型定義をインポート
+import { AppState, ProblemRecord, Unit, Problem } from "./Flowchart"; // Flowchart.tsxから型定義をインポート
 
 // --- Propsの型定義 ---
 interface DetailPanelProps {
@@ -21,7 +21,134 @@ interface DetailPanelProps {
   onClose: () => void;
 }
 
-// --- コンポーネント本体 ---
+interface ProblemRowProps {
+  problem: Problem;
+  record: ProblemRecord;
+  lastRecord: any;
+  handleRecord: (
+    problemId: string,
+    scs: string,
+    scsReason: string
+  ) => Promise<boolean>;
+  loading: boolean;
+}
+
+const scsReasonOptions = {
+  "正解（微妙）": ["たまたま解けた", "時間がかかってしまった"],
+  "不正解（惜しい）": [
+    "解き方をギリギリ思い出せなかった",
+    "防げた計算ミスがあった",
+  ],
+};
+
+// --- 各問題行を管理するサブコンポーネント ---
+function ProblemRow({
+  problem,
+  record,
+  lastRecord,
+  handleRecord,
+  loading,
+}: ProblemRowProps) {
+  const [scs, setScs] = useState("");
+  const [scsReason, setScsReason] = useState("");
+  const [availableReasons, setAvailableReasons] = useState<string[]>([]);
+  const [isRecorded, setIsRecorded] = useState(false);
+  const [fade, setFade] = useState(false);
+
+  // DetailPanelの再表示時にリセット
+  useEffect(() => {
+    setIsRecorded(false);
+    setFade(false);
+    setScs("");
+    setScsReason("");
+    setAvailableReasons([]);
+  }, [problem.id]);
+
+  const handleScsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newScs = e.target.value;
+    setScs(newScs);
+    setScsReason(""); // 理由をリセット
+    setAvailableReasons(
+      scsReasonOptions[newScs as keyof typeof scsReasonOptions] || []
+    );
+  };
+
+  const displayPriority =
+    record.attempts > 0 ? record.probremPriority.toFixed(1) : "不明";
+
+  const [, forceUpdate] = useState({});
+  const handleRecordClick = async () => {
+    const result: boolean = await handleRecord(problem.id, scs, scsReason);
+    if (!result) return; // エラー時は何もしない
+    // 記録直後にrecord.historyへ即時push（localRecordsの参照を利用）
+    if (record && record.history) {
+      record.history.push({ scs, scsReason, timestamp: new Date() });
+      forceUpdate({}); // 強制再レンダリング
+    }
+    // 入力値はリセットしない
+    setIsRecorded(true);
+    setTimeout(() => setFade(true), 1200); // 1.2秒後にフェードアウト
+  };
+
+  return (
+    <tr>
+      <td>{problem.ProblemNumber}</td>
+      <td>
+        <select
+          className="scs-select"
+          value={scs}
+          onChange={handleScsChange}
+          disabled={isRecorded}
+        >
+          <option value=""></option>
+          <option value="正解（完璧）">😀 正解（完璧）</option>
+          <option value="正解（微妙）">🙂 正解（微妙）</option>
+          <option value="不正解（惜しい）">🤔 不正解（惜しい）</option>
+          <option value="不正解（まだまだ）">😥 不正解（まだまだ）</option>
+        </select>
+        <div className="previous-record">
+          前回: {lastRecord?.scs || "記録なし"}
+        </div>
+      </td>
+      <td>
+        <select
+          className="scsReason-select"
+          value={scsReason}
+          onChange={(e) => setScsReason(e.target.value)}
+          disabled={availableReasons.length === 0 || isRecorded}
+        >
+          <option value=""></option>
+          {availableReasons.map((reason) => (
+            <option key={reason} value={reason}>
+              {reason}
+            </option>
+          ))}
+        </select>
+        <div className="previous-record">{lastRecord?.scsReason || ""}</div>
+      </td>
+      <td className="problemPriority-display">{displayPriority}</td>
+      <td className="attempts-count">{record.attempts}</td>
+      <td>
+        <button
+          className={`record-btn${isRecorded ? " recorded" : ""}${
+            fade ? " fade" : ""
+          }`}
+          disabled={loading || isRecorded}
+          onClick={handleRecordClick}
+          style={
+            isRecorded
+              ? { background: "#ccc", color: "#888", cursor: "not-allowed" }
+              : {}
+          }
+        >
+          {isRecorded ? "記録完了" : loading ? "記録中..." : "記録"}
+        </button>
+      </td>
+    </tr>
+  );
+}
+
+// --- DetailPanelコンポーネント本体 ---
 export default function DetailPanel({
   user,
   unitId,
@@ -31,22 +158,20 @@ export default function DetailPanel({
 }: DetailPanelProps) {
   const [loading, setLoading] = useState(false);
   const [localRecords, setLocalRecords] = useState(appState.records);
+  const [panelKey, setPanelKey] = useState(0); // DetailPanel再表示用
 
-  // appState.recordsが外部から更新されたら、ローカルの表示も同期する
   useEffect(() => {
     setLocalRecords(appState.records);
   }, [appState.records]);
 
+  // タブを閉じたらProblemRowの状態をリセットするためkeyを更新
+  const handleClose = () => {
+    setPanelKey((k) => k + 1);
+    onClose();
+  };
+
   const unit = appState.units.find((u) => u.id === unitId);
   const unitProblems = appState.problems.filter((p) => p.UnitID === unitId);
-
-  const scsReasonOptions = {
-    "正解（微妙）": ["たまたま解けた", "時間がかかってしまった"],
-    "不正解（惜しい）": [
-      "解き方をギリギリ思い出せなかった",
-      "防げた計算ミスがあった",
-    ],
-  };
 
   const calculateAllPriorities = (
     problemId: string,
@@ -56,24 +181,18 @@ export default function DetailPanel({
     const newRecords: AppState["records"] = JSON.parse(
       JSON.stringify(localRecords)
     );
-
     if (!newRecords[problemId]) {
       newRecords[problemId] = { attempts: 0, history: [], probremPriority: 0 };
     }
-    let newPriority = parseFloat(newRecords[problemId].probremPriority);
-
+    // 記録直後のattemptsをインクリメント
+    newRecords[problemId].attempts = (newRecords[problemId].attempts || 0) + 1;
+    let newPriority = newRecords[problemId].probremPriority;
     const currentProblem = appState.problems.find((p) => p.id === problemId);
     if (!currentProblem) return newRecords;
     const currentUnit = appState.units.find(
       (u) => u.id === currentProblem.UnitID
     );
     if (!currentUnit) return newRecords;
-
-    const getProblemsInUnits = (unitIds: string[]) => {
-      return appState.problems
-        .filter((p) => unitIds.includes(p.UnitID))
-        .map((p) => p.id);
-    };
 
     if (newScs === "正解（完璧）") newPriority = 0;
     if (newScsReason === "たまたま解けた")
@@ -141,9 +260,13 @@ export default function DetailPanel({
     scs: string,
     scsReason: string
   ) => {
-    if (!scs) return alert("理解状況を選択してください。");
+    if (!scs) {
+      alert("理解状況を選択してください。");
+      return false;
+    }
     if ((scs === "正解（微妙）" || scs === "不正解（惜しい）") && !scsReason) {
-      return alert("理解状況の詳細を選択してください。");
+      alert("理解状況の詳細を選択してください。");
+      return false;
     }
     setLoading(true);
     try {
@@ -153,8 +276,7 @@ export default function DetailPanel({
         updatedRecords
       );
 
-      // --- 修正点: UIを即時反映させる ---
-      setLocalRecords(updatedRecords); // ローカルの表示をすぐに更新
+      setLocalRecords(updatedRecords);
 
       const userDocRef = doc(db, "users", user.uid);
       const batch = writeBatch(db);
@@ -186,7 +308,6 @@ export default function DetailPanel({
 
       await batch.commit();
 
-      // --- 修正点: 親コンポーネントの全体の状態を更新 ---
       setAppState((prevState) => ({
         ...prevState,
         records: updatedRecords,
@@ -195,10 +316,12 @@ export default function DetailPanel({
           ...updatedUnitPriorities,
         },
       }));
+      return true;
     } catch (error) {
       console.error("記録エラー:", error);
       alert("記録中にエラーが発生しました。");
-      setLocalRecords(appState.records); // エラー時は元の状態に戻す
+      setLocalRecords(appState.records);
+      return false;
     } finally {
       setLoading(false);
     }
@@ -211,7 +334,7 @@ export default function DetailPanel({
       <div className="panel-content">
         <div id="detail-header">
           <h2 id="detail-unit-name">{unit.UnitName}</h2>
-          <button id="close-detail" title="閉じる" onClick={onClose}>
+          <button id="close-detail" title="閉じる" onClick={handleClose}>
             ×
           </button>
         </div>
@@ -239,72 +362,19 @@ export default function DetailPanel({
                   const record = localRecords[problem.id] || {
                     attempts: 0,
                     probremPriority: 0,
+                    history: [],
                   };
-                  const historyArr = Array.isArray(
-                    appState.records[problem.id]?.history
-                  )
-                    ? appState.records[problem.id].history
-                    : [];
-                  const lastRecord = historyArr.slice(-1)[0] || {};
-                  const displayPriority =
-                    record.attempts > 0
-                      ? record.probremPriority.toFixed(1)
-                      : "不明";
+                  const lastRecord = record.history?.slice(-1)[0] || {};
 
                   return (
-                    <tr key={problem.id}>
-                      <td>{problem.ProblemNumber}</td>
-                      <td>
-                        <select className="scs-select">
-                          <option value=""></option>
-                          <option value="正解（完璧）">😀 正解（完璧）</option>
-                          <option value="正解（微妙）">🙂 正解（微妙）</option>
-                          <option value="不正解（惜しい）">
-                            🤔 不正解（惜しい）
-                          </option>
-                          <option value="不正解（まだまだ）">
-                            😥 不正解（まだまだ）
-                          </option>
-                        </select>
-                        <div className="previous-record">
-                          前回: {lastRecord?.scs || "記録なし"}
-                        </div>
-                      </td>
-                      <td>
-                        <select className="scsReason-select"></select>
-                        <div className="previous-record">
-                          {lastRecord?.scsReason || ""}
-                        </div>
-                      </td>
-                      <td className="problemPriority-display">
-                        {displayPriority}
-                      </td>
-                      <td className="attempts-count">{record.attempts}</td>
-                      <td>
-                        <button
-                          className="record-btn"
-                          disabled={loading}
-                          onClick={(e) => {
-                            const row = e.currentTarget.closest("tr");
-                            if (row) {
-                              const scs = (
-                                row.querySelector(
-                                  ".scs-select"
-                                ) as HTMLSelectElement
-                              ).value;
-                              const scsReason = (
-                                row.querySelector(
-                                  ".scsReason-select"
-                                ) as HTMLSelectElement
-                              ).value;
-                              handleRecord(problem.id, scs, scsReason);
-                            }
-                          }}
-                        >
-                          {loading ? "記録中..." : "記録"}
-                        </button>
-                      </td>
-                    </tr>
+                    <ProblemRow
+                      key={problem.id + "-" + panelKey}
+                      problem={problem}
+                      record={record}
+                      lastRecord={lastRecord}
+                      handleRecord={handleRecord}
+                      loading={loading}
+                    />
                   );
                 })}
               </tbody>
