@@ -74,7 +74,9 @@ function ProblemRow({
   };
 
   const displayPriority =
-    record.attempts > 0 ? record.probremPriority.toFixed(1) : "不明";
+    record.attempts > 0 || record.probremPriority > 0
+      ? record.probremPriority.toFixed(1)
+      : "不明";
 
   const [, forceUpdate] = useState({});
   const handleRecordClick = async () => {
@@ -101,10 +103,10 @@ function ProblemRow({
           disabled={isRecorded}
         >
           <option value=""></option>
-          <option value="正解（完璧）">😀 正解（完璧）</option>
-          <option value="正解（微妙）">🙂 正解（微妙）</option>
-          <option value="不正解（惜しい）">🤔 不正解（惜しい）</option>
-          <option value="不正解（まだまだ）">😥 不正解（まだまだ）</option>
+          <option value="正解（完璧）"> ⭕（😀完璧）</option>
+          <option value="正解（微妙）"> ⭕（🙂微妙）</option>
+          <option value="不正解（惜しい）"> ❌（🤔惜しい）</option>
+          <option value="不正解（まだまだ）"> ❌（😥まだまだ）</option>
         </select>
         <div className="previous-record">
           前回: {lastRecord?.scs || "記録なし"}
@@ -194,17 +196,179 @@ export default function DetailPanel({
     );
     if (!currentUnit) return newRecords;
 
-    if (newScs === "正解（完璧）") newPriority = 0;
-    if (newScsReason === "たまたま解けた")
+    // "正解（完璧）"を選択した場合、その問題の復習優先度を0にし、historyにも記録をpushする。
+    if (newScs === "正解（完璧）") {
+      newPriority = 0;
+      if (newRecords[problemId].history) {
+        newRecords[problemId].history.push({
+          scs: "正解（完璧）",
+          scsReason: newScsReason,
+          timestamp: new Date(),
+        });
+      } else {
+        newRecords[problemId].history = [
+          {
+            scs: "正解（完璧）",
+            scsReason: newScsReason,
+            timestamp: new Date(),
+          },
+        ];
+      }
+    }
+
+    // ...existing code...
+    // 「たまたま解けた」をscsReasonで選択した場合の処理
+    if (newScsReason === "たまたま解けた") {
       newPriority = Math.min(newPriority + 1, 4);
-    if (newScsReason === "時間がかかってしまった")
+      // 自身のhistoryにもpush
+      if (newRecords[problemId].history) {
+        newRecords[problemId].history.push({
+          scs: newScs,
+          scsReason: newScsReason,
+          timestamp: new Date(),
+        });
+      } else {
+        newRecords[problemId].history = [
+          { scs: newScs, scsReason: newScsReason, timestamp: new Date() },
+        ];
+      }
+      for (const p of appState.problems) {
+        if (p.UnitID === currentUnit.id && p.id !== problemId) {
+          const record = newRecords[p.id];
+          if (
+            !record ||
+            (record.attempts === 0 &&
+              (!record.history || record.history.length === 0))
+          ) {
+            // 記録なしの場合は新規作成して1上げる
+            newRecords[p.id] = {
+              attempts: 0,
+              history: [],
+              probremPriority: 1,
+            };
+            continue;
+          }
+          // 記録ありの場合のみlastScs判定
+          const lastScs =
+            record.history && record.history.length > 0
+              ? record.history[record.history.length - 1].scs
+              : undefined;
+          if (lastScs !== "正解（完璧）") {
+            record.probremPriority = Math.min(record.probremPriority + 1, 4);
+          }
+        }
+      }
+    }
+
+    // "時間がかかってしまった"を選択した場合、その問題の復習優先度を1上げ、historyにもpush。
+    if (newScsReason === "時間がかかってしまった") {
       newPriority = Math.min(newPriority + 1, 4);
-    if (newScsReason === "防げた計算ミスがあった")
+      if (newRecords[problemId].history) {
+        newRecords[problemId].history.push({
+          scs: newScs,
+          scsReason: newScsReason,
+          timestamp: new Date(),
+        });
+      } else {
+        newRecords[problemId].history = [
+          { scs: newScs, scsReason: newScsReason, timestamp: new Date() },
+        ];
+      }
+    }
+    // "防げた計算ミスがあった"を選択した場合、その問題の復習優先度を1上げ、historyにもpush。
+    if (newScsReason === "防げた計算ミスがあった") {
       newPriority = Math.min(newPriority + 1, 4);
-    if (newScsReason === "解き方をギリギリ思い出せなかった")
+      if (newRecords[problemId].history) {
+        newRecords[problemId].history.push({
+          scs: newScs,
+          scsReason: newScsReason,
+          timestamp: new Date(),
+        });
+      } else {
+        newRecords[problemId].history = [
+          { scs: newScs, scsReason: newScsReason, timestamp: new Date() },
+        ];
+      }
+    }
+
+    // "解き方をギリギリ思い出せなかった"を選択した場合、その問題の復習優先度を2上げ、
+    // その問題のunitおよびDependsOnに登録されているunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外の問題の復習優先度を1上げる。
+    if (newScsReason === "解き方をギリギリ思い出せなかった") {
       newPriority = Math.min(newPriority + 2, 4);
-    if (newScs === "不正解（まだまだ）")
+      // 対象unit idリストを作成
+      const relatedUnitIds = [currentUnit.id];
+      if (currentUnit.DependsOn) {
+        relatedUnitIds.push(
+          ...String(currentUnit.DependsOn)
+            .split(",")
+            .map((id) => id.trim())
+        );
+      }
+      for (const p of appState.problems) {
+        if (relatedUnitIds.includes(p.UnitID) && p.id !== problemId) {
+          const record = newRecords[p.id];
+          if (
+            !record ||
+            (record.attempts === 0 &&
+              (!record.history || record.history.length === 0))
+          ) {
+            // 記録なしの場合は新規作成して1上げる（historyは空のまま）
+            newRecords[p.id] = {
+              attempts: 0,
+              history: [],
+              probremPriority: 1,
+            };
+            continue;
+          }
+          const lastScs =
+            record.history && record.history.length > 0
+              ? record.history[record.history.length - 1].scs
+              : undefined;
+          if (lastScs !== "正解（完璧）") {
+            record.probremPriority = Math.min(record.probremPriority + 1, 4);
+          }
+        }
+      }
+    }
+
+    // "不正解（まだまだ）"を選択した場合、その問題の復習優先度を2上げ、
+    // その問題のunitおよびDependsOnに登録されているunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外、または"記録なし"の問題の復習優先度を1上げる。
+    if (newScs === "不正解（まだまだ）") {
       newPriority = Math.min(newPriority + 2, 4);
+      const relatedUnitIds = [currentUnit.id];
+      if (currentUnit.DependsOn) {
+        relatedUnitIds.push(
+          ...String(currentUnit.DependsOn)
+            .split(",")
+            .map((id) => id.trim())
+        );
+      }
+      for (const p of appState.problems) {
+        if (relatedUnitIds.includes(p.UnitID) && p.id !== problemId) {
+          const record = newRecords[p.id];
+          if (
+            !record ||
+            (record.attempts === 0 &&
+              (!record.history || record.history.length === 0))
+          ) {
+            // 記録なしの場合は新規作成して1上げる（historyは空のまま）
+            newRecords[p.id] = {
+              attempts: 0,
+              history: [],
+              probremPriority: 1,
+            };
+            continue;
+          }
+          const lastScs =
+            record.history && record.history.length > 0
+              ? record.history[record.history.length - 1].scs
+              : undefined;
+          if (lastScs !== "正解（完璧）") {
+            record.probremPriority = Math.min(record.probremPriority + 1, 4);
+          }
+        }
+      }
+    }
 
     newRecords[problemId].probremPriority = newPriority;
     return newRecords;
@@ -243,7 +407,12 @@ export default function DetailPanel({
       let sum = 0;
       let count = 0;
       problemsInUnit.forEach((pid) => {
-        if (updatedRecords[pid] && (updatedRecords[pid].attempts || 0) > 0) {
+        // attempts>0 ではなく、probremPriority>0 も集計対象にする
+        if (
+          updatedRecords[pid] &&
+          (updatedRecords[pid].probremPriority > 0 ||
+            (updatedRecords[pid].attempts || 0) > 0)
+        ) {
           sum += updatedRecords[pid].probremPriority;
           count++;
         }
@@ -261,11 +430,11 @@ export default function DetailPanel({
     scsReason: string
   ) => {
     if (!scs) {
-      alert("理解状況を選択してください。");
+      alert("正解・不正解を選択してください。");
       return false;
     }
     if ((scs === "正解（微妙）" || scs === "不正解（惜しい）") && !scsReason) {
-      alert("理解状況の詳細を選択してください。");
+      alert("理解状況を選択してください。");
       return false;
     }
     setLoading(true);
@@ -350,8 +519,8 @@ export default function DetailPanel({
               <thead>
                 <tr>
                   <th>問題番号</th>
+                  <th>正解・不正解</th>
                   <th>理解状況</th>
-                  <th>理解状況の詳細</th>
                   <th>復習優先度</th>
                   <th>解いた回数</th>
                   <th>アクション</th>
