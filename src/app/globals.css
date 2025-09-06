@@ -128,8 +128,8 @@ main {
   z-index: 100;
 }
 .panel-content {
-  width: 90%;
-  max-width: 700px;
+  width: 95%; /* 90→95 */
+  max-width: 900px; /* 700→900 */
   background: white;
   border-radius: 12px;
   box-shadow: var(--panel-shadow);
@@ -183,7 +183,7 @@ main {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 600px;
+  min-width: 800px; /* 600→800 */
 }
 th,
 td {
