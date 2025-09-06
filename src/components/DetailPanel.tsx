@@ -350,7 +350,7 @@ export default function DetailPanel({
               <thead>
                 <tr>
                   <th>問題番号</th>
-                  <th>理解状況 (SCS)</th>
+                  <th>理解状況</th>
                   <th>理解状況の詳細</th>
                   <th>復習優先度</th>
                   <th>解いた回数</th>

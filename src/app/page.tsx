@@ -10,10 +10,12 @@ import {
 } from "firebase/auth";
 import { auth } from "../firebase/clientApp";
 import Flowchart from "../components/Flowchart";
+import ProfileDialog from "../components/ProfileDialog";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -54,6 +56,12 @@ export default function Home() {
               <p id="user-info">
                 ようこそ, <span id="user-email">{user.email}</span> さん
               </p>
+              <button
+                onClick={() => setProfileOpen(true)}
+                style={{ marginRight: 8 }}
+              >
+                プロフィール変更
+              </button>
               <button id="logout-btn" onClick={handleLogout}>
                 ログアウト
               </button>
@@ -67,7 +75,14 @@ export default function Home() {
       </header>
       <main>
         {user ? (
-          <Flowchart user={user} />
+          <>
+            <Flowchart user={user} />
+            <ProfileDialog
+              user={user}
+              open={profileOpen}
+              onClose={() => setProfileOpen(false)}
+            />
+          </>
         ) : (
           <div style={{ padding: "2rem", textAlign: "center" }}>
             <p>Googleアカウントでログインしてください。</p>
