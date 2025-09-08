@@ -8,8 +8,8 @@ import {
   signOut,
   onAuthStateChanged,
 } from "firebase/auth";
-import { auth } from "../firebase/clientApp";
-import Flowchart from "../components/Flowchart";
+import { auth } from "../firebase/clientAppPhysics";
+import FlowchartPhysics from "../components/FlowchartPhysics";
 import ProfileDialog from "../components/ProfileDialog";
 
 export default function Home() {
@@ -49,7 +49,7 @@ export default function Home() {
   return (
     <div id="app">
       <header>
-        <h1>数学学習フローチャート</h1>
+  <h1>物理フローチャート</h1>
         <div id="auth-container">
           {user ? (
             <>
@@ -76,7 +76,7 @@ export default function Home() {
       <main>
         {user ? (
           <>
-            <Flowchart user={user} />
+            <FlowchartPhysics user={user} />
             <ProfileDialog
               user={user}
               open={profileOpen}
