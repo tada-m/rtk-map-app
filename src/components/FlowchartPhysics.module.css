@@ -1,0 +1,24 @@
+.flowchart-physics-node {
+  width: 220px;
+  height: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  word-break: break-all;
+  box-sizing: border-box;
+  position: absolute;
+  background-color: var(--node-bg-color);
+  border: 1px solid var(--node-border-color);
+  border-radius: 8px;
+  padding: 1.2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease,
+    background-color 0.3s ease, border-color 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+  font-size: 1.1rem;
+  /* 矢印の中央揃えを強調 */
+  justify-content: center;
+  align-items: center;
+}

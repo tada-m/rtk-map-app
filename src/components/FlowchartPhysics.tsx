@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import { collection, doc, getDocs } from "firebase/firestore";
 import { User } from "firebase/auth";
-import { db } from "../firebase/clientApp";
-import DetailPanel from "./DetailPanel";
+import { db } from "../firebase/clientAppPhysics"; // 物理用firebase
+import styles from "./FlowchartPhysics.module.css";
+import DetailPanelPhysics from "./DetailPanelPhysics";
 
-// --- 型定義 (エクスポートしてDetailPanelでも使えるように) ---
 export interface Unit {
   id: string;
   UnitName: string;
@@ -35,12 +35,11 @@ export interface AppState {
   unitPriorities: { [unitId: string]: number };
 }
 
-interface FlowchartProps {
+interface FlowchartPhysicsProps {
   user: User;
 }
 
-// --- コンポーネント本体 ---
-export default function Flowchart({ user }: FlowchartProps) {
+export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
   const [appState, setAppState] = useState<AppState>({
     units: [],
     problems: [],
@@ -97,6 +96,7 @@ export default function Flowchart({ user }: FlowchartProps) {
   useEffect(() => {
     linesRef.current.forEach((line) => line.remove());
     linesRef.current = [];
+    let removeScrollListener: (() => void) | null = null;
     if (appState.units.length > 0 && !loading) {
       import("leader-line-new").then((LeaderLine) => {
         appState.units.forEach((unit) => {
@@ -109,20 +109,34 @@ export default function Flowchart({ user }: FlowchartProps) {
                 const line = new LeaderLine.default(startNode, targetNode, {
                   color: "rgba(0, 0, 0, 0.6)",
                   size: 2,
-                  path: "straight", //grid or straight
+                  path: "straight",
                   endPlug: "arrow1",
                   dropShadow: true,
+                  startSocket: "auto",
+                  endSocket: "auto",
                 });
                 linesRef.current.push(line);
               }
             });
           }
         });
+        // スクロール時に矢印を再描画
+        const container = document.getElementById("flowchart-container");
+        if (container) {
+          const onScroll = () => {
+            linesRef.current.forEach((line) => line.position());
+          };
+          container.addEventListener("scroll", onScroll, { passive: true });
+          removeScrollListener = () => {
+            container.removeEventListener("scroll", onScroll);
+          };
+        }
       });
     }
     return () => {
       linesRef.current.forEach((line) => line.remove());
       linesRef.current = [];
+      if (removeScrollListener) removeScrollListener();
     };
   }, [appState.units, loading]);
 
@@ -135,60 +149,33 @@ export default function Flowchart({ user }: FlowchartProps) {
       ? Math.max(...appState.units.map((u) => u.PosY || 0))
       : 1;
 
-  // ⭐の数が最大のノードを赤く、それ以外は白
-  const unitStars: { [unitId: string]: number } = {};
-  let maxStars = 0;
-  appState.units.forEach((u) => {
-    const priority = appState.unitPriorities[u.id];
-    if (priority !== undefined && priority > 0) {
-      const stars = Math.ceil(priority);
-      unitStars[u.id] = stars;
-      if (stars > maxStars) maxStars = stars;
-    } else {
-      unitStars[u.id] = 0;
-    }
-  });
-
   return (
     <>
       <div id="flowchart-container">
-        {appState.units.map((unit) => {
-          const unitPriority = appState.unitPriorities[unit.id];
-          let nodeClass = "flowchart-node";
-          // ⭐の数が最大のノードのみ赤、それ以外は白
-          if (unitStars[unit.id] === maxStars && maxStars > 0) {
-            nodeClass += " node-top-priority";
-          }
-          let priorityBadge = null;
-          if (unitPriority !== undefined && unitPriority > 0) {
-            const numberOfStars = Math.ceil(unitPriority);
-            if (numberOfStars > 0) {
-              priorityBadge = (
-                <span className="priority-badge">
-                  {"⭐".repeat(numberOfStars)}
-                </span>
-              );
-            }
-          }
-          return (
-            <div
-              key={unit.id}
-              id={unit.id}
-              className={nodeClass}
-              style={{
-                left: `${(unit.PosX - 1) * 200}px`, // 220→200
-                top: `${(maxPosY - unit.PosY) * 130}px`, // 150→130
-              }}
-              onClick={() => setSelectedUnitId(unit.id)}
-            >
-              <span>{unit.UnitName}</span>
-              {priorityBadge}
-            </div>
-          );
-        })}
+        {appState.units.map((unit) => (
+          <div
+            key={unit.id}
+            id={unit.id}
+            className={styles["flowchart-physics-node"]}
+            style={{
+              left: `${(unit.PosX - 1) * 260}px`, // ノード間の横間隔を拡大
+              top: `${(maxPosY - unit.PosY) * 200}px`, // ノード間の縦間隔を拡大
+            }}
+            onClick={() => setSelectedUnitId(unit.id)}
+          >
+            <span>{unit.UnitName}</span>
+            {unit.imagePath && (
+              <img
+                src={unit.imagePath}
+                alt={unit.UnitName}
+                style={{ maxWidth: 120, maxHeight: 80, marginTop: 8 }}
+              />
+            )}
+          </div>
+        ))}
       </div>
       {selectedUnitId && (
-        <DetailPanel
+        <DetailPanelPhysics
           user={user}
           unitId={selectedUnitId}
           appState={appState}

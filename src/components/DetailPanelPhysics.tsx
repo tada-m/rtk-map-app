@@ -9,11 +9,10 @@ import {
   arrayUnion,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
-import { db } from "../firebase/clientApp";
-import { AppState, ProblemRecord, Unit, Problem } from "./Flowchart"; // Flowchart.tsxから型定義をインポート
+import { db } from "../firebase/clientAppPhysics";
+import { AppState, ProblemRecord, Unit, Problem } from "./FlowchartPhysics";
 
-// --- Propsの型定義 ---
-interface DetailPanelProps {
+interface DetailPanelPhysicsProps {
   user: User;
   unitId: string;
   appState: AppState;
@@ -41,7 +40,6 @@ const scsReasonOptions = {
   ],
 };
 
-// --- 各問題行を管理するサブコンポーネント ---
 function ProblemRow({
   problem,
   record,
@@ -55,7 +53,6 @@ function ProblemRow({
   const [isRecorded, setIsRecorded] = useState(false);
   const [fade, setFade] = useState(false);
 
-  // DetailPanelの再表示時にリセット
   useEffect(() => {
     setIsRecorded(false);
     setFade(false);
@@ -67,7 +64,7 @@ function ProblemRow({
   const handleScsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newScs = e.target.value;
     setScs(newScs);
-    setScsReason(""); // 理由をリセット
+    setScsReason("");
     setAvailableReasons(
       scsReasonOptions[newScs as keyof typeof scsReasonOptions] || []
     );
@@ -81,15 +78,13 @@ function ProblemRow({
   const [, forceUpdate] = useState({});
   const handleRecordClick = async () => {
     const result: boolean = await handleRecord(problem.id, scs, scsReason);
-    if (!result) return; // エラー時は何もしない
-    // 記録直後にrecord.historyへ即時push（localRecordsの参照を利用）
+    if (!result) return;
     if (record && record.history) {
       record.history.push({ scs, scsReason, timestamp: new Date() });
-      forceUpdate({}); // 強制再レンダリング
+      forceUpdate({});
     }
-    // 入力値はリセットしない
     setIsRecorded(true);
-    setTimeout(() => setFade(true), 1200); // 1.2秒後にフェードアウト
+    setTimeout(() => setFade(true), 1200);
   };
 
   return (
@@ -150,23 +145,21 @@ function ProblemRow({
   );
 }
 
-// --- DetailPanelコンポーネント本体 ---
-export default function DetailPanel({
+export default function DetailPanelPhysics({
   user,
   unitId,
   appState,
   setAppState,
   onClose,
-}: DetailPanelProps) {
+}: DetailPanelPhysicsProps) {
   const [loading, setLoading] = useState(false);
   const [localRecords, setLocalRecords] = useState(appState.records);
-  const [panelKey, setPanelKey] = useState(0); // DetailPanel再表示用
+  const [panelKey, setPanelKey] = useState(0);
 
   useEffect(() => {
     setLocalRecords(appState.records);
   }, [appState.records]);
 
-  // タブを閉じたらProblemRowの状態をリセットするためkeyを更新
   const handleClose = () => {
     setPanelKey((k) => k + 1);
     onClose();
@@ -175,6 +168,13 @@ export default function DetailPanel({
   const unit = appState.units.find((u) => u.id === unitId);
   const unitProblems = appState.problems.filter((p) => p.UnitID === unitId);
 
+  // 画像パスはunit.imagePathをそのまま使う
+  const getImagePath = (unit: Unit) => {
+    if (!unit.imagePath) return undefined;
+    return unit.imagePath;
+  };
+
+  // --- 数学版と同じロジック ---
   const calculateAllPriorities = (
     problemId: string,
     newScs: string,
@@ -186,7 +186,6 @@ export default function DetailPanel({
     if (!newRecords[problemId]) {
       newRecords[problemId] = { attempts: 0, history: [], probremPriority: 0 };
     }
-    // 記録直後のattemptsをインクリメント
     newRecords[problemId].attempts = (newRecords[problemId].attempts || 0) + 1;
     let newPriority = newRecords[problemId].probremPriority;
     const currentProblem = appState.problems.find((p) => p.id === problemId);
@@ -196,7 +195,6 @@ export default function DetailPanel({
     );
     if (!currentUnit) return newRecords;
 
-    // "正解（完璧）"を選択した場合、その問題の復習優先度を0にし、historyにも記録をpushする。
     if (newScs === "正解（完璧）") {
       newPriority = 0;
       if (newRecords[problemId].history) {
@@ -215,12 +213,8 @@ export default function DetailPanel({
         ];
       }
     }
-
-    // ...existing code...
-    // 「たまたま解けた」をscsReasonで選択した場合の処理
     if (newScsReason === "たまたま解けた") {
       newPriority = Math.min(newPriority + 1, 4);
-      // 自身のhistoryにもpush
       if (newRecords[problemId].history) {
         newRecords[problemId].history.push({
           scs: newScs,
@@ -240,7 +234,6 @@ export default function DetailPanel({
             (record.attempts === 0 &&
               (!record.history || record.history.length === 0))
           ) {
-            // 記録なしの場合は新規作成して1上げる
             newRecords[p.id] = {
               attempts: 0,
               history: [],
@@ -248,7 +241,6 @@ export default function DetailPanel({
             };
             continue;
           }
-          // 記録ありの場合のみlastScs判定
           const lastScs =
             record.history && record.history.length > 0
               ? record.history[record.history.length - 1].scs
@@ -259,8 +251,6 @@ export default function DetailPanel({
         }
       }
     }
-
-    // "時間がかかってしまった"を選択した場合、その問題の復習優先度を1上げ、historyにもpush。
     if (newScsReason === "時間がかかってしまった") {
       newPriority = Math.min(newPriority + 1, 4);
       if (newRecords[problemId].history) {
@@ -275,7 +265,6 @@ export default function DetailPanel({
         ];
       }
     }
-    // "防げた計算ミスがあった"を選択した場合、その問題の復習優先度を1上げ、historyにもpush。
     if (newScsReason === "防げた計算ミスがあった") {
       newPriority = Math.min(newPriority + 1, 4);
       if (newRecords[problemId].history) {
@@ -290,12 +279,8 @@ export default function DetailPanel({
         ];
       }
     }
-
-    // "解き方をギリギリ思い出せなかった"を選択した場合、その問題の復習優先度を2上げ、
-    // その問題のunitおよびDependsOnに登録されているunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外の問題の復習優先度を1上げる。
     if (newScsReason === "解き方をギリギリ思い出せなかった") {
       newPriority = Math.min(newPriority + 2, 4);
-      // 対象unit idリストを作成
       const relatedUnitIds = [currentUnit.id];
       if (currentUnit.DependsOn) {
         relatedUnitIds.push(
@@ -312,7 +297,6 @@ export default function DetailPanel({
             (record.attempts === 0 &&
               (!record.history || record.history.length === 0))
           ) {
-            // 記録なしの場合は新規作成して1上げる（historyは空のまま）
             newRecords[p.id] = {
               attempts: 0,
               history: [],
@@ -330,9 +314,6 @@ export default function DetailPanel({
         }
       }
     }
-
-    // "不正解（まだまだ）"を選択した場合、その問題の復習優先度を2上げ、
-    // その問題のunitおよびDependsOnに登録されているunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外、または"記録なし"の問題の復習優先度を1上げる。
     if (newScs === "不正解（まだまだ）") {
       newPriority = Math.min(newPriority + 2, 4);
       const relatedUnitIds = [currentUnit.id];
@@ -351,7 +332,6 @@ export default function DetailPanel({
             (record.attempts === 0 &&
               (!record.history || record.history.length === 0))
           ) {
-            // 記録なしの場合は新規作成して1上げる（historyは空のまま）
             newRecords[p.id] = {
               attempts: 0,
               history: [],
@@ -369,7 +349,6 @@ export default function DetailPanel({
         }
       }
     }
-
     newRecords[problemId].probremPriority = newPriority;
     return newRecords;
   };
@@ -407,7 +386,6 @@ export default function DetailPanel({
       let sum = 0;
       let count = 0;
       problemsInUnit.forEach((pid) => {
-        // attempts>0 ではなく、probremPriority>0 も集計対象にする
         if (
           updatedRecords[pid] &&
           (updatedRecords[pid].probremPriority > 0 ||
@@ -510,7 +488,11 @@ export default function DetailPanel({
         <div id="detail-body">
           {unit.imagePath && (
             <div id="detail-image-container">
-              <img id="detail-image" src={unit.imagePath} alt={unit.UnitName} />
+              <img
+                id="detail-image"
+                src={getImagePath(unit)}
+                alt={unit.UnitName}
+              />
             </div>
           )}
           <h3>問題リスト</h3>
@@ -534,7 +516,6 @@ export default function DetailPanel({
                     history: [],
                   };
                   const lastRecord = record.history?.slice(-1)[0] || {};
-
                   return (
                     <ProblemRow
                       key={problem.id + "-" + panelKey}
