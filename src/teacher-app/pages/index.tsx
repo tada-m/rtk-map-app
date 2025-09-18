@@ -89,7 +89,7 @@ export default function TeacherDashboard() {
 
   return (
     <div style={{ padding: 24 }}>
-      <h1>管理者用ダッシュボード</h1>
+      <h1>教員用ダッシュボード</h1>
       <div style={{ marginBottom: 16 }}>
         <input
           type="text"

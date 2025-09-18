@@ -22,3 +22,18 @@
   justify-content: center;
   align-items: center;
 }
+
+.node-top-priority {
+  background-color: #ffeaea !important;
+  border: 2px solid #e53935 !important;
+  box-shadow: 0 0 10px 2px #e5393555;
+}
+
+.priority-badge {
+  color: #e53935;
+  font-size: 1.3em;
+  margin-left: 0.3em;
+  margin-right: 0.3em;
+  vertical-align: middle;
+  letter-spacing: 0.1em;
+}

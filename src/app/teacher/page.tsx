@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import TeacherDashboard from "../../teacher-app/pages/index";
 
@@ -6,8 +7,6 @@ export default function TeacherPage() {
   const [authed, setAuthed] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState("");
-
-  // 管理者用パスワード（本番では環境変数やFirebase Authを推奨）
   const ADMIN_PASSWORD = "teacher";
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -23,13 +22,13 @@ export default function TeacherPage() {
   if (!authed) {
     return (
       <div style={{ padding: 40 }}>
-        <h2>管理者ログイン</h2>
+        <h2>教員用ダッシュボード閲覧</h2>
         <form onSubmit={handleSubmit}>
           <input
             type="password"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="管理者パスワード"
+            placeholder="パスワード"
             style={{ fontSize: 18, padding: 8 }}
           />
           <button type="submit" style={{ marginLeft: 12, fontSize: 18 }}>

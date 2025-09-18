@@ -149,30 +149,64 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
       ? Math.max(...appState.units.map((u) => u.PosY || 0))
       : 1;
 
+  // ⭐の数が最大のノードを赤く、それ以外は白
+  const unitStars: { [unitId: string]: number } = {};
+  let maxStars = 0;
+  appState.units.forEach((u) => {
+    const priority = appState.unitPriorities[u.id];
+    if (priority !== undefined && priority > 0) {
+      const stars = Math.ceil(priority);
+      unitStars[u.id] = stars;
+      if (stars > maxStars) maxStars = stars;
+    } else {
+      unitStars[u.id] = 0;
+    }
+  });
+
   return (
     <>
       <div id="flowchart-container">
-        {appState.units.map((unit) => (
-          <div
-            key={unit.id}
-            id={unit.id}
-            className={styles["flowchart-physics-node"]}
-            style={{
-              left: `${(unit.PosX - 1) * 260}px`, // ノード間の横間隔を拡大
-              top: `${(maxPosY - unit.PosY) * 200}px`, // ノード間の縦間隔を拡大
-            }}
-            onClick={() => setSelectedUnitId(unit.id)}
-          >
-            <span>{unit.UnitName}</span>
-            {unit.imagePath && (
-              <img
-                src={unit.imagePath}
-                alt={unit.UnitName}
-                style={{ maxWidth: 120, maxHeight: 80, marginTop: 8 }}
-              />
-            )}
-          </div>
-        ))}
+        {appState.units.map((unit) => {
+          const unitPriority = appState.unitPriorities[unit.id];
+          let nodeClass = styles["flowchart-physics-node"];
+          // ⭐の数が最大のノードのみ赤、それ以外は白
+          if (unitStars[unit.id] === maxStars && maxStars > 0) {
+            nodeClass += " " + styles["node-top-priority"];
+          }
+          let priorityBadge = null;
+          if (unitPriority !== undefined && unitPriority > 0) {
+            const numberOfStars = Math.ceil(unitPriority);
+            if (numberOfStars > 0) {
+              priorityBadge = (
+                <span className={styles["priority-badge"]}>
+                  {"⭐".repeat(numberOfStars)}
+                </span>
+              );
+            }
+          }
+          return (
+            <div
+              key={unit.id}
+              id={unit.id}
+              className={nodeClass}
+              style={{
+                left: `${(unit.PosX - 1) * 260}px`,
+                top: `${(maxPosY - unit.PosY) * 200}px`,
+              }}
+              onClick={() => setSelectedUnitId(unit.id)}
+            >
+              <span>{unit.UnitName}</span>
+              {priorityBadge}
+              {unit.imagePath && (
+                <img
+                  src={unit.imagePath}
+                  alt={unit.UnitName}
+                  style={{ maxWidth: 120, maxHeight: 80, marginTop: 8 }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
       {selectedUnitId && (
         <DetailPanelPhysics
