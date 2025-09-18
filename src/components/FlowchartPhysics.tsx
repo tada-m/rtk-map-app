@@ -14,6 +14,7 @@ export interface Unit {
   PosX: number;
   PosY: number;
   imagePath?: string;
+  group?: string;
 }
 
 export interface Problem {
@@ -56,9 +57,21 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
       setLoading(true);
       try {
         const unitsSnapshot = await getDocs(collection(db, "units"));
-        const units = unitsSnapshot.docs.map(
-          (doc) => ({ id: doc.id, ...doc.data() } as Unit)
-        );
+        // PosX,PosYからグループ名を割り当てる関数
+        const getGroupName = (posX: number, posY: number): string => {
+          if (posX === 1 && posY >= 2 && posY <= 4) return "モーメントの基本";
+          if (posX === 2 && posY >= 3 && posY <= 4) return "つり合いの式";
+          if (posX === 3 && posY >= 3 && posY <= 4) return "棒のつり合い";
+          if (posX === 4 && posY >= 2 && posY <= 4) return "重心";
+          if (posX === 5 && posY >= 2 && posY <= 4) return "モーメントの応用";
+          if (posY === 1 && posX >= 1 && posX <= 4) return "今までの復習";
+          return "";
+        };
+        const units = unitsSnapshot.docs.map((doc) => {
+          const data = doc.data() as Unit;
+          const group = getGroupName(data.PosX, data.PosY);
+          return { ...data, id: doc.id, group };
+        });
 
         const problemsSnapshot = await getDocs(collection(db, "problems"));
         const problems = problemsSnapshot.docs.map(
@@ -163,13 +176,81 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
     }
   });
 
+  // グループごとにまとめる
+  const groupNames = [
+    "モーメントの基本",
+    "つり合いの式",
+    "棒のつり合い",
+    "重心",
+    "モーメントの応用",
+    "今までの復習",
+  ];
+  // グループごとにノードをまとめる
+  const groupUnits: { [group: string]: typeof appState.units } = {};
+  groupNames.forEach((g) => {
+    groupUnits[g] = appState.units.filter((u) => u.group === g);
+  });
+
+  // グループごとの枠の位置とサイズを計算（暫定: ノードのmin/max座標から自動算出）
+  const groupFrames = groupNames.map((group) => {
+    const units = groupUnits[group];
+    if (units.length === 0) return null;
+    const minX = Math.min(...units.map((u) => u.PosX));
+    const maxX = Math.max(...units.map((u) => u.PosX));
+    const minY = Math.min(...units.map((u) => u.PosY));
+    const maxY = Math.max(...units.map((u) => u.PosY));
+    // ノードの位置計算式に合わせる
+    // iPad第8世代 1080x810ptに収まるよう調整
+    const nodeW = 170,
+      nodeH = 120,
+      gapX = 30,
+      gapY = 30;
+    const padX = 40,
+      padY = 50; // y方向の余白を+10px
+    const left = padX + (minX - 1) * (nodeW + gapX);
+    const top = padY + (maxPosY - maxY) * (nodeH + gapY);
+    const width = (maxX - minX + 1) * (nodeW + gapX) - gapX;
+    const height = (maxY - minY + 1) * (nodeH + gapY) - gapY;
+    return { group, left, top, width, height };
+    return { group, left, top, width, height };
+  });
+
   return (
     <>
-      <div id="flowchart-container">
+      <div
+        id="flowchart-container"
+        style={{
+          position: "relative",
+          minHeight: 810,
+          minWidth: 1080,
+          maxWidth: 1080,
+          maxHeight: 810,
+          overflow: "hidden",
+          padding: "40px",
+        }}
+      >
+        {/* グループ枠とラベル */}
+        {groupFrames.map(
+          (frame, idx) =>
+            frame && (
+              <div
+                key={frame.group}
+                className={styles["group-frame"]}
+                style={{
+                  left: frame.left,
+                  top: frame.top,
+                  width: frame.width,
+                  height: frame.height,
+                }}
+              >
+                <span className={styles["group-label"]}>{frame.group}</span>
+              </div>
+            )
+        )}
+        {/* ノード本体 */}
         {appState.units.map((unit) => {
           const unitPriority = appState.unitPriorities[unit.id];
           let nodeClass = styles["flowchart-physics-node"];
-          // ⭐の数が最大のノードのみ赤、それ以外は白
           if (unitStars[unit.id] === maxStars && maxStars > 0) {
             nodeClass += " " + styles["node-top-priority"];
           }
@@ -190,8 +271,9 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
               id={unit.id}
               className={nodeClass}
               style={{
-                left: `${(unit.PosX - 1) * 260}px`,
-                top: `${(maxPosY - unit.PosY) * 200}px`,
+                left: `${42 + (unit.PosX - 1) * 200}px`,
+                top: `${60 + (maxPosY - unit.PosY) * 150}px`,
+                zIndex: 10,
               }}
               onClick={() => setSelectedUnitId(unit.id)}
             >
