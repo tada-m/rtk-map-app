@@ -21,6 +21,9 @@ export interface Problem {
   id: string;
   UnitID: string;
   ProblemNumber: number;
+  imagePath?: string;
+  DependsOn?: string;
+  page?: string | number;
 }
 
 export interface ProblemRecord {
@@ -64,7 +67,7 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
           if (posX === 3 && posY >= 3 && posY <= 4) return "棒のつり合い";
           if (posX === 4 && posY >= 2 && posY <= 4) return "重心";
           if (posX === 5 && posY >= 2 && posY <= 4) return "モーメントの応用";
-          if (posY === 1 && posX >= 1 && posX <= 4) return "今までの復習";
+          if (posY === 1 && posX >= 1 && posX <= 5) return "今までの復習";
           return "";
         };
         const units = unitsSnapshot.docs.map((doc) => {

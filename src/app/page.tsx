@@ -49,7 +49,7 @@ export default function Home() {
   return (
     <div id="app">
       <header>
-  <h1>物理フローチャート</h1>
+        <h1>物理学習マップ（剛体にはたらく力）</h1>
         <div id="auth-container">
           {user ? (
             <>

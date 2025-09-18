@@ -207,6 +207,9 @@ function UnitsProblemsTable() {
               <th>DocID</th>
               <th>ProblemNumber</th>
               <th>UnitID</th>
+              <th>page</th>
+              <th>imagePath</th>
+              <th>DependsOn</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -230,6 +233,27 @@ function UnitsProblemsTable() {
                     />
                   </td>
                   <td>
+                    <input
+                      name="page"
+                      value={editProblem.page || ""}
+                      onChange={handleProblemEditChange}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      name="imagePath"
+                      value={editProblem.imagePath || ""}
+                      onChange={handleProblemEditChange}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      name="DependsOn"
+                      value={editProblem.DependsOn || ""}
+                      onChange={handleProblemEditChange}
+                    />
+                  </td>
+                  <td>
                     <button onClick={handleProblemEditSave}>保存</button>
                     <button onClick={() => setEditProblemId(null)}>
                       キャンセル
@@ -241,6 +265,9 @@ function UnitsProblemsTable() {
                   <td>{p.id}</td>
                   <td>{p.ProblemNumber}</td>
                   <td>{p.UnitID}</td>
+                  <td>{p.page}</td>
+                  <td>{p.imagePath}</td>
+                  <td>{p.DependsOn}</td>
                   <td>
                     <button onClick={() => handleProblemEdit(p)}>編集</button>
                     <button onClick={() => handleProblemDelete(p.id)}>
@@ -343,6 +370,9 @@ function ProblemForm() {
   const [problem, setProblem] = useState({
     ProblemNumber: "",
     UnitID: "",
+    page: "",
+    imagePath: "",
+    DependsOn: "",
   });
   const [msg, setMsg] = useState("");
 
@@ -388,6 +418,24 @@ function ProblemForm() {
         name="UnitID"
         placeholder="UnitID"
         value={problem.UnitID}
+        onChange={handleChange}
+      />
+      <input
+        name="page"
+        placeholder="page (例: 12)"
+        value={problem.page}
+        onChange={handleChange}
+      />
+      <input
+        name="imagePath"
+        placeholder="imagePath (例: /images/physics/problems/p001-01.png)"
+        value={problem.imagePath}
+        onChange={handleChange}
+      />
+      <input
+        name="DependsOn"
+        placeholder="DependsOn (例: U001,U002)"
+        value={problem.DependsOn}
         onChange={handleChange}
       />
       <button type="submit">登録</button>

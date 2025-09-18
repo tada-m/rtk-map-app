@@ -88,8 +88,13 @@ function ProblemRow({
   };
 
   return (
-    <tr>
-      <td>{problem.ProblemNumber}</td>
+    <>
+      <td>
+        {problem.ProblemNumber}
+        <div className="previous-record">
+          セミナー物理基礎+物理 P. {problem.page}
+        </div>
+      </td>
       <td>
         <select
           className="scs-select"
@@ -141,7 +146,7 @@ function ProblemRow({
           {isRecorded ? "記録完了" : loading ? "記録中..." : "記録"}
         </button>
       </td>
-    </tr>
+    </>
   );
 }
 
@@ -152,6 +157,10 @@ export default function DetailPanelPhysics({
   setAppState,
   onClose,
 }: DetailPanelPhysicsProps) {
+  // 選択中の問題ID
+  const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
+    null
+  );
   const [loading, setLoading] = useState(false);
   const [localRecords, setLocalRecords] = useState(appState.records);
   const [panelKey, setPanelKey] = useState(0);
@@ -168,11 +177,27 @@ export default function DetailPanelPhysics({
   const unit = appState.units.find((u) => u.id === unitId);
   const unitProblems = appState.problems.filter((p) => p.UnitID === unitId);
 
-  // 画像パスはunit.imagePathをそのまま使う
-  const getImagePath = (unit: Unit) => {
-    if (!unit.imagePath) return undefined;
-    return unit.imagePath;
+  // 選択中の問題
+  const selectedProblem = selectedProblemId
+    ? appState.problems.find((p) => p.id === selectedProblemId)
+    : null;
+
+  // 画像パス: 問題選択時はproblems.imagePath、未選択時はunit.imagePath
+  const getImagePath = () => {
+    if (selectedProblem && selectedProblem.imagePath)
+      return selectedProblem.imagePath;
+    if (unit && unit.imagePath) return unit.imagePath;
+    return undefined;
   };
+
+  // 関連知識ノード: 問題選択時のみDependsOnから取得
+  let relatedUnits: Unit[] = [];
+  if (selectedProblem && selectedProblem.DependsOn) {
+    const ids = String(selectedProblem.DependsOn)
+      .split(",")
+      .map((id) => id.trim());
+    relatedUnits = appState.units.filter((u) => ids.includes(u.id));
+  }
 
   // --- 数学版と同じロジック ---
   const calculateAllPriorities = (
@@ -485,51 +510,135 @@ export default function DetailPanelPhysics({
             ×
           </button>
         </div>
-        <div id="detail-body">
-          {unit.imagePath && (
-            <div id="detail-image-container">
+        <div
+          id="detail-body"
+          style={{ display: "flex", flexDirection: "row", minHeight: 200 }}
+        >
+          {/* 左側: 画像 */}
+          <div
+            id="detail-image-container"
+            style={{
+              width: 400,
+              height: 300,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "#fff",
+            }}
+          >
+            {getImagePath() && (
               <img
                 id="detail-image"
-                src={getImagePath(unit)}
+                src={getImagePath()}
                 alt={unit.UnitName}
+                style={{
+                  maxWidth: "100%",
+                  maxHeight: "100%",
+                  width: "auto",
+                  height: "auto",
+                  display: "block",
+                }}
               />
-            </div>
-          )}
-          <h3>問題リスト</h3>
-          <div className="table-wrapper">
-            <table id="problem-table">
-              <thead>
-                <tr>
-                  <th>問題番号</th>
-                  <th>正解・不正解</th>
-                  <th>理解状況</th>
-                  <th>復習優先度</th>
-                  <th>解いた回数</th>
-                  <th>アクション</th>
-                </tr>
-              </thead>
-              <tbody>
-                {unitProblems.map((problem) => {
-                  const record = localRecords[problem.id] || {
-                    attempts: 0,
-                    probremPriority: 0,
-                    history: [],
-                  };
-                  const lastRecord = record.history?.slice(-1)[0] || {};
-                  return (
+            )}
+          </div>
+          {/* 右上: 関連知識ノード */}
+          <div style={{ flex: 1, marginLeft: 24 }}>
+            {selectedProblem && (
+              <div
+                style={{
+                  border: "2px solid #222",
+                  borderRadius: 16,
+                  padding: 12,
+                  marginBottom: 12,
+                }}
+              >
+                <div style={{ fontWeight: "bold", marginBottom: 8 }}>
+                  この問題に関連する知識
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                  {relatedUnits.map((u) => (
+                    <div
+                      key={u.id}
+                      style={{
+                        border: "1px solid #aaa",
+                        borderRadius: 8,
+                        padding: 8,
+                        width: 100,
+                        cursor: "pointer",
+                        textAlign: "center",
+                      }}
+                      onClick={() => {
+                        setPanelKey((k) => k + 1);
+                        setSelectedProblemId(null);
+                        onClose();
+                        setTimeout(
+                          () =>
+                            setAppState((prev) => ({
+                              ...prev,
+                              selectedUnitId: u.id,
+                            })),
+                          0
+                        );
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>
+                        {u.UnitName}
+                      </div>
+                      {u.imagePath && (
+                        <img
+                          src={u.imagePath}
+                          alt={u.UnitName}
+                          style={{ maxWidth: 80, maxHeight: 50, marginTop: 4 }}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* 問題リスト */}
+        <h3>問題リスト</h3>
+        <div className="table-wrapper">
+          <table id="problem-table">
+            <thead>
+              <tr>
+                <th>問題番号</th>
+                <th>正解・不正解</th>
+                <th>理解状況</th>
+                <th>復習優先度</th>
+                <th>解いた回数</th>
+                <th>アクション</th>
+              </tr>
+            </thead>
+            <tbody>
+              {unitProblems.map((problem) => {
+                const record = localRecords[problem.id] || {
+                  attempts: 0,
+                  probremPriority: 0,
+                  history: [],
+                };
+                const lastRecord = record.history?.slice(-1)[0] || {};
+                const isSelected = selectedProblemId === problem.id;
+                return (
+                  <tr
+                    key={problem.id + "-" + panelKey}
+                    style={isSelected ? { background: "#ffeedd" } : {}}
+                    onClick={() => setSelectedProblemId(problem.id)}
+                  >
                     <ProblemRow
-                      key={problem.id + "-" + panelKey}
                       problem={problem}
                       record={record}
                       lastRecord={lastRecord}
                       handleRecord={handleRecord}
                       loading={loading}
                     />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
