@@ -51,11 +51,11 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
     e.preventDefault();
     // 半角数字チェック
     if (!studentId || !name || !studentClass) {
-      setError("クラス（組）・番号・名前を入力してください");
+      setError("クラス（組）・学籍番号・名前を入力してください");
       return;
     }
     if (!/^[0-9]+$/.test(studentId)) {
-      setError("番号は半角数字で入力してください");
+      setError("学籍番号は半角数字で入力してください");
       return;
     }
     setLoading(true);
@@ -117,7 +117,7 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
             />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label>番号</label>
+            <label>学籍番号</label>
             <input
               type="text"
               value={studentId}

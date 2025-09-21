@@ -178,7 +178,7 @@ export default function TeacherDashboard() {
           <thead>
             <tr>
               <th>クラス</th>
-              <th>番号</th>
+              <th>学籍番号</th>
               <th>名前</th>
               <th>メールアドレス</th>
               <th>学習記録件数</th>

@@ -340,7 +340,7 @@ function TeacherDashboard() {
       <div style={{ marginBottom: 16 }}>
         <input
           type="text"
-          placeholder="クラス・番号・名前で検索"
+          placeholder="クラス・学籍番号・名前で検索"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ fontSize: 16, padding: 6, width: 260 }}
@@ -381,7 +381,7 @@ function TeacherDashboard() {
           <thead>
             <tr>
               <th>クラス</th>
-              <th>番号</th>
+              <th>学籍番号</th>
               <th>名前</th>
               <th>メールアドレス</th>
               <th>学習記録件数</th>
