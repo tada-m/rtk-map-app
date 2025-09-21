@@ -520,8 +520,8 @@ export default function DetailPanel({
                 <tr>
                   <th>問題番号</th>
                   <th>正解・不正解</th>
-                  <th>理解状況</th>
-                  <th>復習優先度</th>
+                  <th>主観的な理解状況</th>
+                  <th>問題復習優先度</th>
                   <th>解いた回数</th>
                   <th>アクション</th>
                 </tr>

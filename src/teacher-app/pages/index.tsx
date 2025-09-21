@@ -1,4 +1,10 @@
 import { useEffect, useState } from "react";
+import {
+  getAuth,
+  onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
+} from "firebase/auth";
 import { db } from "../../firebase/clientApp";
 import {
   collection,
@@ -26,8 +32,20 @@ export default function TeacherDashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
+    const auth = getAuth();
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
     const fetchData = async () => {
       setLoading(true);
       const usersCol = collection(db, "users");
@@ -75,25 +93,51 @@ export default function TeacherDashboard() {
       setLoading(false);
     };
     fetchData();
-  }, []);
+  }, [user]);
 
-  // 検索フィルタ（部分一致: 学籍番号・名前・クラス）
+  // 検索フィルタ（部分一致: クラス・学籍番号・名前）
   const filteredUsers = users.filter((u) => {
     const s = search.trim().toLowerCase();
     return (
+      (u.class && u.class.toLowerCase().includes(s)) ||
       (u.studentId && u.studentId.toLowerCase().includes(s)) ||
-      (u.name && u.name.toLowerCase().includes(s)) ||
-      (u.class && u.class.toLowerCase().includes(s))
+      (u.name && u.name.toLowerCase().includes(s))
     );
   });
 
+  if (authLoading) return <div>Loading...</div>;
+  if (!user) {
+    return (
+      <div style={{ padding: 24 }}>
+        <h1>教員用ダッシュボード</h1>
+        <button
+          onClick={async () => {
+            const provider = new GoogleAuthProvider();
+            await signInWithPopup(getAuth(), provider);
+          }}
+          style={{
+            fontSize: 18,
+            padding: "10px 24px",
+            background: "#4285F4",
+            color: "#fff",
+            border: "none",
+            borderRadius: 4,
+            cursor: "pointer",
+          }}
+        >
+          Googleアカウントでログイン
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 24 }}>
-      <h1>管理者用ダッシュボード</h1>
+      <h1>教員用ダッシュボード</h1>
       <div style={{ marginBottom: 16 }}>
         <input
           type="text"
-          placeholder="学籍番号・名前・クラスで検索"
+          placeholder="クラス・学籍番号・名前で検索"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ fontSize: 16, padding: 6, width: 260 }}

@@ -9,17 +9,24 @@
     "export": "next export"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.2",
+    "@mui/material": "^7.3.2",
     "firebase": "^12.1.0",
     "leader-line-new": "^1.1.9",
     "next": "15.4.6",
+    "notistack": "^3.0.2",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/marked": "^6.0.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "marked": "^16.3.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

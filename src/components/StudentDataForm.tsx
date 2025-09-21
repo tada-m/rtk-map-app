@@ -19,7 +19,7 @@ export default function StudentDataForm({ user, onRegistered }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentId || !name || !studentClass) {
-      setError("学籍番号・名前・クラスを入力してください");
+      setError("クラス（組）・番号・名前を入力してください");
       return;
     }
     setLoading(true);
@@ -52,6 +52,18 @@ export default function StudentDataForm({ user, onRegistered }: Props) {
     >
       <h2>初回登録</h2>
       <div style={{ marginBottom: 12 }}>
+        <label>クラス</label>
+        <select
+          value={studentClass}
+          onChange={(e) => setStudentClass(e.target.value)}
+          style={{ width: "100%", fontSize: 16, padding: 6 }}
+        >
+          <option value="">選択してください</option>
+          <option value="A">A</option>
+          <option value="B">B</option>
+        </select>
+      </div>
+      <div style={{ marginBottom: 12 }}>
         <label>学籍番号</label>
         <input
           type="text"
@@ -68,18 +80,6 @@ export default function StudentDataForm({ user, onRegistered }: Props) {
           onChange={(e) => setName(e.target.value)}
           style={{ width: "100%", fontSize: 16, padding: 6 }}
         />
-      </div>
-      <div style={{ marginBottom: 12 }}>
-        <label>クラス</label>
-        <select
-          value={studentClass}
-          onChange={(e) => setStudentClass(e.target.value)}
-          style={{ width: "100%", fontSize: 16, padding: 6 }}
-        >
-          <option value="">選択してください</option>
-          <option value="A">A</option>
-          <option value="B">B</option>
-        </select>
       </div>
       <button
         type="submit"
