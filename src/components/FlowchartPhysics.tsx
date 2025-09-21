@@ -6,7 +6,7 @@ import { User } from "firebase/auth";
 import { db } from "../firebase/clientAppPhysics"; // 物理用firebase
 import styles from "./FlowchartPhysics.module.css";
 import DetailPanelPhysics from "./DetailPanelPhysics";
-import Toast from "./Toast";
+import { useEnqueueSnackbar } from "./Toast";
 import ProblemSearchAutocomplete from "./ProblemSearchAutocomplete";
 
 export interface Unit {
@@ -56,8 +56,7 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
   });
   const [loading, setLoading] = useState(true);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string>("");
-  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const enqueueSnackbar = useEnqueueSnackbar();
   const linesRef = useRef<any[]>([]);
 
   useEffect(() => {
@@ -335,24 +334,15 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
             setSearchSelectedProblem(null);
             const unit = appState.units.find((u) => u.id === unitId);
             if (unit) {
-              setToastMessage(`${unit.UnitName}のパネルに移動しました`);
-              if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-              toastTimerRef.current = setTimeout(
-                () => setToastMessage(""),
-                3000
-              );
+              enqueueSnackbar(`${unit.UnitName}のパネルに移動しました`, {
+                variant: "default",
+              });
             }
           }}
           initialProblemId={searchSelectedProblem?.id || null}
         />
       )}
-      <Toast
-        open={!!toastMessage}
-        message={toastMessage}
-        onClose={() => setToastMessage("")}
-        autoHideDuration={3000}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      />
+      {/* トーストはenqueueSnackbarで表示するためToastコンポーネントは不要 */}
     </>
   );
 }

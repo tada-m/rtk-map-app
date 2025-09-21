@@ -11,6 +11,7 @@ import {
 import { User } from "firebase/auth";
 import { db } from "../firebase/clientAppPhysics";
 import { AppState, ProblemRecord, Unit, Problem } from "./FlowchartPhysics";
+import { useEnqueueSnackbar } from "./Toast";
 
 interface DetailPanelPhysicsProps {
   user: User;
@@ -78,14 +79,19 @@ function ProblemRow({
       : "不明";
 
   const [, forceUpdate] = useState({});
+  const enqueueSnackbar = useEnqueueSnackbar();
   const handleRecordClick = async () => {
     const result: boolean = await handleRecord(problem.id, scs, scsReason);
-    if (!result) return;
+    if (!result) {
+      enqueueSnackbar("記録に失敗しました", { variant: "error" });
+      return;
+    }
     if (record && record.history) {
       record.history.push({ scs, scsReason, timestamp: new Date() });
       forceUpdate({});
     }
     setIsRecorded(true);
+    enqueueSnackbar("記録に成功しました", { variant: "success" });
     setTimeout(() => setFade(true), 1200);
   };
 
@@ -480,17 +486,20 @@ export default function DetailPanelPhysics({
     return { updatedUnitPriorities };
   };
 
+  const enqueueSnackbar = useEnqueueSnackbar();
   const handleRecord = async (
     problemId: string,
     scs: string,
     scsReason: string
   ) => {
     if (!scs) {
-      alert("正解・不正解を選択してください。");
+      enqueueSnackbar("正解・不正解を選択してください。", {
+        variant: "warning",
+      });
       return false;
     }
     if ((scs === "正解（微妙）" || scs === "不正解（惜しい）") && !scsReason) {
-      alert("理解状況を選択してください。");
+      enqueueSnackbar("理解状況を選択してください。", { variant: "warning" });
       return false;
     }
     setLoading(true);
@@ -551,7 +560,7 @@ export default function DetailPanelPhysics({
       return true;
     } catch (error) {
       console.error("記録エラー:", error);
-      alert("記録中にエラーが発生しました。");
+      enqueueSnackbar("記録中にエラーが発生しました。", { variant: "error" });
       setLocalRecords(appState.records);
       return false;
     } finally {
