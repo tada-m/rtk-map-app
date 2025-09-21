@@ -1,6 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 import {
   doc,
   collection,
@@ -571,18 +576,38 @@ export default function DetailPanelPhysics({
   if (!unit) return null;
 
   return (
-    <div id="detail-panel">
-      <div className="panel-content">
-        <div id="detail-header">
-          <h2 id="detail-unit-name">{unit.UnitName}</h2>
-          <button id="close-detail" title="閉じる" onClick={handleClose}>
-            ×
-          </button>
-        </div>
-        <div
-          id="detail-body"
-          style={{ display: "flex", flexDirection: "row", minHeight: 200 }}
+    <Dialog
+      open={true}
+      onClose={handleClose}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{ style: { borderRadius: 16, minWidth: 900 } }}
+    >
+      <DialogTitle
+        sx={{
+          m: 0,
+          p: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <span>{unit.UnitName}</span>
+        <IconButton
+          aria-label="close"
+          onClick={handleClose}
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
         >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers sx={{ p: 0 }}>
+        <div style={{ display: "flex", flexDirection: "row", minHeight: 200 }}>
           {/* 左側: 画像 */}
           <div
             id="detail-image-container"
@@ -662,8 +687,8 @@ export default function DetailPanelPhysics({
           </div>
         </div>
         {/* 問題リスト */}
-        <h3>問題リスト</h3>
-        <div className="table-wrapper">
+        <h3 style={{ margin: "24px 0 8px 0", paddingLeft: 8 }}>問題リスト</h3>
+        <div className="table-wrapper" style={{ padding: 8 }}>
           <table id="problem-table">
             <thead>
               <tr>
@@ -703,7 +728,7 @@ export default function DetailPanelPhysics({
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

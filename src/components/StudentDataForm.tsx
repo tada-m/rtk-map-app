@@ -19,7 +19,7 @@ export default function StudentDataForm({ user, onRegistered }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!studentId || !name || !studentClass) {
-      setError("クラス・学籍番号・名前を入力してください");
+      setError("クラス（組）・番号・名前を入力してください");
       return;
     }
     setLoading(true);

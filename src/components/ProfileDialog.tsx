@@ -1,5 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase/clientApp";
 import { User } from "firebase/auth";
@@ -46,11 +51,11 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
     e.preventDefault();
     // 半角数字チェック
     if (!studentId || !name || !studentClass) {
-      setError("クラス・学籍番号・名前を入力してください");
+      setError("クラス（組）・番号・名前を入力してください");
       return;
     }
     if (!/^[0-9]+$/.test(studentId)) {
-      setError("学籍番号は半角数字で入力してください");
+      setError("番号は半角数字で入力してください");
       return;
     }
     setLoading(true);
@@ -74,40 +79,35 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
     }
   };
 
-  if (!open) return null;
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        top: 0,
-        left: 0,
-        width: "100vw",
-        height: "100vh",
-        background: "rgba(0,0,0,0.3)",
-        zIndex: 1000,
-      }}
-    >
-      <div
-        style={{
-          background: "#fff",
-          maxWidth: 360,
-          margin: "60px auto",
-          padding: 24,
-          borderRadius: 8,
-          position: "relative",
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle
+        sx={{
+          m: 0,
+          p: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
         }}
       >
-        <button
+        <span>プロフィール編集</span>
+        <IconButton
+          aria-label="close"
           onClick={onClose}
-          style={{ position: "absolute", right: 12, top: 12, fontSize: 20 }}
+          sx={{
+            position: "absolute",
+            right: 8,
+            top: 8,
+            color: (theme) => theme.palette.grey[500],
+          }}
         >
-          ×
-        </button>
-        <h2>編集</h2>
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent dividers>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 12 }}>
-            <label>クラス</label>
+            <label>クラス（組）</label>
             <input
               type="text"
               value={studentClass}
@@ -117,7 +117,7 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
             />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label>学籍番号</label>
+            <label>番号</label>
             <input
               type="text"
               value={studentId}
@@ -152,7 +152,7 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
             <div style={{ color: "green", marginTop: 8 }}>{success}</div>
           )}
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
