@@ -6,6 +6,8 @@ import { User } from "firebase/auth";
 import { db } from "../firebase/clientAppPhysics"; // 物理用firebase
 import styles from "./FlowchartPhysics.module.css";
 import DetailPanelPhysics from "./DetailPanelPhysics";
+import Toast from "./Toast";
+import ProblemSearchAutocomplete from "./ProblemSearchAutocomplete";
 
 export interface Unit {
   id: string;
@@ -44,6 +46,8 @@ interface FlowchartPhysicsProps {
 }
 
 export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
+  const [searchSelectedProblem, setSearchSelectedProblem] =
+    useState<Problem | null>(null);
   const [appState, setAppState] = useState<AppState>({
     units: [],
     problems: [],
@@ -52,6 +56,8 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
   });
   const [loading, setLoading] = useState(true);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string>("");
+  const toastTimerRef = useRef<NodeJS.Timeout | null>(null);
   const linesRef = useRef<any[]>([]);
 
   useEffect(() => {
@@ -230,8 +236,20 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
     return { group, left, top, width, height };
   });
 
+  // ヘッダ部分に検索窓を追加
   return (
     <>
+      <div style={{ display: "flex", alignItems: "center", marginBottom: 16 }}>
+        <ProblemSearchAutocomplete
+          options={[...appState.problems].sort(
+            (a, b) => Number(a.page) - Number(b.page)
+          )}
+          onSelect={(problem) => {
+            setSelectedUnitId(problem.UnitID);
+            setSearchSelectedProblem(problem);
+          }}
+        />
+      </div>
       <div
         id="flowchart-container"
         style={{
@@ -312,8 +330,29 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
           appState={appState}
           setAppState={setAppState}
           onClose={() => setSelectedUnitId(null)}
+          onUnitNodeClick={(unitId) => {
+            setSelectedUnitId(unitId);
+            setSearchSelectedProblem(null);
+            const unit = appState.units.find((u) => u.id === unitId);
+            if (unit) {
+              setToastMessage(`${unit.UnitName}のパネルに移動しました`);
+              if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+              toastTimerRef.current = setTimeout(
+                () => setToastMessage(""),
+                3000
+              );
+            }
+          }}
+          initialProblemId={searchSelectedProblem?.id || null}
         />
       )}
+      <Toast
+        open={!!toastMessage}
+        message={toastMessage}
+        onClose={() => setToastMessage("")}
+        autoHideDuration={3000}
+        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+      />
     </>
   );
 }

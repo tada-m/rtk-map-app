@@ -18,6 +18,8 @@ interface DetailPanelPhysicsProps {
   appState: AppState;
   setAppState: React.Dispatch<React.SetStateAction<AppState>>;
   onClose: () => void;
+  onUnitNodeClick?: (unitId: string) => void;
+  initialProblemId?: string | null;
 }
 
 interface ProblemRowProps {
@@ -156,10 +158,12 @@ export default function DetailPanelPhysics({
   appState,
   setAppState,
   onClose,
+  onUnitNodeClick,
+  initialProblemId = null,
 }: DetailPanelPhysicsProps) {
   // 選択中の問題ID
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
-    null
+    initialProblemId
   );
   const [loading, setLoading] = useState(false);
   const [localRecords, setLocalRecords] = useState(appState.records);
@@ -624,17 +628,11 @@ export default function DetailPanelPhysics({
                         textAlign: "center",
                       }}
                       onClick={() => {
-                        setPanelKey((k) => k + 1);
-                        setSelectedProblemId(null);
-                        onClose();
-                        setTimeout(
-                          () =>
-                            setAppState((prev) => ({
-                              ...prev,
-                              selectedUnitId: u.id,
-                            })),
-                          0
-                        );
+                        setSelectedProblemId(null); // unit遷移時は必ずunit画像を表示
+                        if (onUnitNodeClick) {
+                          onClose();
+                          onUnitNodeClick(u.id);
+                        }
                       }}
                     >
                       <div style={{ fontSize: 13, fontWeight: 600 }}>
