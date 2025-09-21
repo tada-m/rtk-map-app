@@ -1,5 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
+import { doc, getDoc, setDoc } from "firebase/firestore";
+import { db } from "../../firebase/clientApp";
 import {
   User,
   GoogleAuthProvider,
@@ -17,9 +19,17 @@ export default function MathPage() {
   const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       setLoading(false);
+      // Firestoreにメールアドレスを保存（初回のみ）
+      if (currentUser) {
+        const userRef = doc(db, "users", currentUser.uid);
+        const snap = await getDoc(userRef);
+        if (!snap.exists()) {
+          await setDoc(userRef, { email: currentUser.email }, { merge: true });
+        }
+      }
     });
     return () => unsubscribe();
   }, []);

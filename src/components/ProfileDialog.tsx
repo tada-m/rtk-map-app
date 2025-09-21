@@ -44,8 +44,13 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // 半角数字チェック
     if (!studentId || !name || !studentClass) {
-      setError("学籍番号・名前・クラスを入力してください");
+      setError("クラス・学籍番号・名前を入力してください");
+      return;
+    }
+    if (!/^[0-9]+$/.test(studentId)) {
+      setError("学籍番号は半角数字で入力してください");
       return;
     }
     setLoading(true);
@@ -55,7 +60,10 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
       const userRef = doc(db, "users", user.uid);
       await setDoc(
         userRef,
-        { studentData: { studentId, name, class: studentClass } },
+        {
+          email: user.email,
+          studentData: { studentId, name, class: studentClass },
+        },
         { merge: true }
       );
       setSuccess("プロフィールを更新しました");
@@ -96,15 +104,30 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
         >
           ×
         </button>
-        <h2>プロフィール編集</h2>
+        <h2>編集</h2>
         <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: 12 }}>
+            <label>クラス</label>
+            <input
+              type="text"
+              value={studentClass}
+              onChange={(e) => setStudentClass(e.target.value)}
+              style={{ width: "100%", fontSize: 16, padding: 6 }}
+              placeholder="クラス名"
+            />
+          </div>
           <div style={{ marginBottom: 12 }}>
             <label>学籍番号</label>
             <input
               type="text"
               value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
+              onChange={(e) =>
+                setStudentId(e.target.value.replace(/[^0-9]/g, ""))
+              }
               style={{ width: "100%", fontSize: 16, padding: 6 }}
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="半角数字のみ"
             />
           </div>
           <div style={{ marginBottom: 12 }}>
@@ -114,19 +137,8 @@ export default function ProfileDialog({ user, open, onClose }: Props) {
               value={name}
               onChange={(e) => setName(e.target.value)}
               style={{ width: "100%", fontSize: 16, padding: 6 }}
+              placeholder="氏名"
             />
-          </div>
-          <div style={{ marginBottom: 12 }}>
-            <label>クラス</label>
-            <select
-              value={studentClass}
-              onChange={(e) => setStudentClass(e.target.value)}
-              style={{ width: "100%", fontSize: 16, padding: 6 }}
-            >
-              <option value="">選択してください</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-            </select>
           </div>
           <button
             type="submit"

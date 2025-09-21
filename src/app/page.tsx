@@ -11,11 +11,16 @@ import {
 import { auth } from "../firebase/clientAppPhysics";
 import FlowchartPhysics from "../components/FlowchartPhysics";
 import ProfileDialog from "../components/ProfileDialog";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase/clientApp";
 
 export default function Home() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [profileStatus, setProfileStatus] = useState<
+    "loading" | "registered" | "unregistered"
+  >("loading");
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -24,6 +29,35 @@ export default function Home() {
     });
     return () => unsubscribe();
   }, []);
+
+  // プロフィール情報の取得
+  useEffect(() => {
+    if (!user) {
+      setProfileStatus("loading");
+      return;
+    }
+    const fetchProfile = async () => {
+      try {
+        const userRef = doc(db, "users", user.uid);
+        const snap = await getDoc(userRef);
+        const data = snap.data();
+        if (
+          data &&
+          data.studentData &&
+          data.studentData.studentId &&
+          data.studentData.name &&
+          data.studentData.class
+        ) {
+          setProfileStatus("registered");
+        } else {
+          setProfileStatus("unregistered");
+        }
+      } catch {
+        setProfileStatus("unregistered");
+      }
+    };
+    fetchProfile();
+  }, [user, profileOpen]);
 
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
@@ -58,9 +92,20 @@ export default function Home() {
               </p>
               <button
                 onClick={() => setProfileOpen(true)}
-                style={{ marginRight: 8 }}
+                style={
+                  profileStatus === "unregistered"
+                    ? {
+                        marginRight: 8,
+                        background: "orange",
+                        color: "#fff",
+                        fontWeight: "bold",
+                      }
+                    : { marginRight: 8 }
+                }
               >
-                プロフィール変更
+                {profileStatus === "unregistered"
+                  ? "プロフィールを登録してください"
+                  : "プロフィール変更"}
               </button>
               <button id="logout-btn" onClick={handleLogout}>
                 ログアウト

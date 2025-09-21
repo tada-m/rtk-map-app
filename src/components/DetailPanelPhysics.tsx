@@ -33,10 +33,10 @@ interface ProblemRowProps {
 }
 
 const scsReasonOptions = {
-  "正解（微妙）": ["たまたま解けた", "時間がかかってしまった"],
+  "正解（微妙）": ["たまたま解けたが微妙", "時間がかかってしまった"],
   "不正解（惜しい）": [
-    "解き方をギリギリ思い出せなかった",
-    "防げた計算ミスがあった",
+    "理解したので次は解けそう",
+    "計算ミスなどの惜しい間違い方をした",
   ],
 };
 
@@ -220,6 +220,7 @@ export default function DetailPanelPhysics({
     );
     if (!currentUnit) return newRecords;
 
+    // "正解（完璧）"を選択した場合、その問題の復習優先度を0にする。
     if (newScs === "正解（完璧）") {
       newPriority = 0;
       if (newRecords[problemId].history) {
@@ -238,7 +239,8 @@ export default function DetailPanelPhysics({
         ];
       }
     }
-    if (newScsReason === "たまたま解けた") {
+    // "たまたま解けたが微妙"を選択した場合、その問題の復習優先度を1上げ、その問題のunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外の問題の復習優先度も1上げる。
+    if (newScsReason === "たまたま解けたが微妙") {
       newPriority = Math.min(newPriority + 1, 4);
       if (newRecords[problemId].history) {
         newRecords[problemId].history.push({
@@ -276,6 +278,7 @@ export default function DetailPanelPhysics({
         }
       }
     }
+    // "時間がかかってしまった"を選択した場合、その問題の復習優先度を1上げる。
     if (newScsReason === "時間がかかってしまった") {
       newPriority = Math.min(newPriority + 1, 4);
       if (newRecords[problemId].history) {
@@ -290,7 +293,8 @@ export default function DetailPanelPhysics({
         ];
       }
     }
-    if (newScsReason === "防げた計算ミスがあった") {
+    // "計算ミスなどの惜しい間違い方をした"を選択した場合、その問題の復習優先度を1上げる。
+    if (newScsReason === "計算ミスなどの惜しい間違い方をした") {
       newPriority = Math.min(newPriority + 1, 4);
       if (newRecords[problemId].history) {
         newRecords[problemId].history.push({
@@ -304,8 +308,10 @@ export default function DetailPanelPhysics({
         ];
       }
     }
-    if (newScsReason === "解き方をギリギリ思い出せなかった") {
+    // "理解したので次は解けそう"を選択した場合、その問題の復習優先度を2上げ、その問題のunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外の問題の復習優先度も1上げる。その問題に関連する知識（problemコレクションのDependsOn）全ての問題の中で、主観的な理解状況が"正解（完璧）"以外の問題の復習優先度を1上げる。
+    if (newScsReason === "理解したので次は解けそう") {
       newPriority = Math.min(newPriority + 2, 4);
+      // currentUnit, currentUnit.DependsOn, currentProblem.DependsOn すべてを関連unit候補に
       const relatedUnitIds = [currentUnit.id];
       if (currentUnit.DependsOn) {
         relatedUnitIds.push(
@@ -314,33 +320,55 @@ export default function DetailPanelPhysics({
             .map((id) => id.trim())
         );
       }
-      for (const p of appState.problems) {
-        if (relatedUnitIds.includes(p.UnitID) && p.id !== problemId) {
-          const record = newRecords[p.id];
-          if (
-            !record ||
-            (record.attempts === 0 &&
-              (!record.history || record.history.length === 0))
-          ) {
-            newRecords[p.id] = {
-              attempts: 0,
-              history: [],
-              probremPriority: 1,
-            };
-            continue;
-          }
-          const lastScs =
-            record.history && record.history.length > 0
-              ? record.history[record.history.length - 1].scs
-              : undefined;
-          if (lastScs !== "正解（完璧）") {
-            record.probremPriority = Math.min(record.probremPriority + 1, 4);
+      if (currentProblem.DependsOn) {
+        relatedUnitIds.push(
+          ...String(currentProblem.DependsOn)
+            .split(",")
+            .map((id) => id.trim())
+        );
+      }
+      // 重複排除
+      const uniqueRelatedUnitIds = Array.from(new Set(relatedUnitIds));
+      // 関連知識（DependsOnで指定されたunit）ごとに全problemを走査
+      for (const relatedUnitId of uniqueRelatedUnitIds) {
+        for (const p of appState.problems) {
+          if (p.UnitID === relatedUnitId && p.id !== problemId) {
+            const record = newRecords[p.id];
+            const lastScs =
+              record && record.history && record.history.length > 0
+                ? record.history[record.history.length - 1].scs
+                : undefined;
+            if (
+              !record ||
+              (record.attempts === 0 &&
+                (!record.history || record.history.length === 0))
+            ) {
+              // 記録なし: 既にpriorityが1以上なら+1、0なら1
+              const prevPriority =
+                record && typeof record.probremPriority === "number"
+                  ? record.probremPriority
+                  : 0;
+              newRecords[p.id] = {
+                attempts: 0,
+                history: [],
+                probremPriority: Math.min((prevPriority || 0) + 1, 4),
+              };
+            } else if (lastScs !== "正解（完璧）") {
+              // 既に1以上のものも+1
+              record.probremPriority = Math.min(
+                (record.probremPriority || 0) + 1,
+                4
+              );
+              // attemptsは変更しない
+            }
           }
         }
       }
     }
+    // "不正解（まだまだ）"を選択した場合、その問題の復習優先度を2上げ、その問題のunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外の問題の復習優先度を1上げる。関連する知識全ての問題の中で、主観的な理解状況が"正解（完璧）"以外の問題の復習優先度を2上げる。
     if (newScs === "不正解（まだまだ）") {
       newPriority = Math.min(newPriority + 2, 4);
+      // currentUnit, currentUnit.DependsOn, currentProblem.DependsOn すべてを関連unit候補に
       const relatedUnitIds = [currentUnit.id];
       if (currentUnit.DependsOn) {
         relatedUnitIds.push(
@@ -349,27 +377,48 @@ export default function DetailPanelPhysics({
             .map((id) => id.trim())
         );
       }
-      for (const p of appState.problems) {
-        if (relatedUnitIds.includes(p.UnitID) && p.id !== problemId) {
-          const record = newRecords[p.id];
-          if (
-            !record ||
-            (record.attempts === 0 &&
-              (!record.history || record.history.length === 0))
-          ) {
-            newRecords[p.id] = {
-              attempts: 0,
-              history: [],
-              probremPriority: 1,
-            };
-            continue;
-          }
-          const lastScs =
-            record.history && record.history.length > 0
-              ? record.history[record.history.length - 1].scs
-              : undefined;
-          if (lastScs !== "正解（完璧）") {
-            record.probremPriority = Math.min(record.probremPriority + 1, 4);
+      if (currentProblem.DependsOn) {
+        relatedUnitIds.push(
+          ...String(currentProblem.DependsOn)
+            .split(",")
+            .map((id) => id.trim())
+        );
+      }
+      // 重複排除
+      const uniqueRelatedUnitIds = Array.from(new Set(relatedUnitIds));
+      // 関連知識（DependsOnで指定されたunit）ごとに全problemを走査
+      for (const relatedUnitId of uniqueRelatedUnitIds) {
+        for (const p of appState.problems) {
+          if (p.UnitID === relatedUnitId && p.id !== problemId) {
+            const record = newRecords[p.id];
+            const lastScs =
+              record && record.history && record.history.length > 0
+                ? record.history[record.history.length - 1].scs
+                : undefined;
+            // ★ここで加算値を分岐
+            const addValue = relatedUnitId === currentUnit.id ? 1 : 2;
+            if (
+              !record ||
+              (record.attempts === 0 &&
+                (!record.history || record.history.length === 0))
+            ) {
+              const prevPriority =
+                record && typeof record.probremPriority === "number"
+                  ? record.probremPriority
+                  : 0;
+              newRecords[p.id] = {
+                attempts: 0,
+                history: [],
+                probremPriority: Math.min((prevPriority || 0) + addValue, 4),
+              };
+            } else if (lastScs !== "正解（完璧）") {
+              // 既に1以上のものも+2
+              record.probremPriority = Math.min(
+                (record.probremPriority || 0) + 2,
+                4
+              );
+              // attemptsは変更しない
+            }
           }
         }
       }
@@ -462,16 +511,23 @@ export default function DetailPanelPhysics({
         timestamp: serverTimestamp(),
       });
 
-      const problemRecordRef = doc(userDocRef, "problemRecords", problemId);
-      batch.set(
-        problemRecordRef,
-        {
-          probremPriority: updatedRecords[problemId].probremPriority,
-          attempts: (appState.records[problemId]?.attempts || 0) + 1,
-          history: arrayUnion({ scs, scsReason, timestamp: new Date() }),
-        },
-        { merge: true }
-      );
+      // priorityが変化した全てのproblemRecordsをFirestoreに保存
+      Object.entries(updatedRecords).forEach(([pid, rec]) => {
+        // 変更があったものだけ書き込む（probremPriority>0またはattempts>0）
+        if (rec && (rec.probremPriority > 0 || rec.attempts > 0)) {
+          const problemRecordRef = doc(userDocRef, "problemRecords", pid);
+          batch.set(
+            problemRecordRef,
+            {
+              probremPriority: rec.probremPriority,
+              attempts: rec.attempts,
+              // historyはarrayUnionだと新規は追加されないので、常に全履歴を保存
+              history: rec.history || [],
+            },
+            { merge: true }
+          );
+        }
+      });
 
       Object.keys(updatedUnitPriorities).forEach((uid) => {
         const unitPriorityRef = doc(userDocRef, "unitPriorities", uid);

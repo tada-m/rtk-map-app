@@ -90,12 +90,24 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
           records[doc.id] = doc.data() as ProblemRecord;
         });
 
-        const unitPrioritiesSnapshot = await getDocs(
-          collection(userDocRef, "unitPriorities")
-        );
+        // 復習優先度を「unit内のproblem（UnitIDがunit.id）」のprobremPriority平均で計算
         const unitPriorities: { [unitId: string]: number } = {};
-        unitPrioritiesSnapshot.forEach((doc) => {
-          unitPriorities[doc.id] = doc.data().priority;
+        units.forEach((unit) => {
+          const relatedProblems = problems.filter((p) => p.UnitID === unit.id);
+          let sum = 0;
+          let count = 0;
+          relatedProblems.forEach((p) => {
+            const rec = records[p.id];
+            if (
+              rec &&
+              typeof rec.probremPriority === "number" &&
+              rec.probremPriority > 0
+            ) {
+              sum += rec.probremPriority;
+              count++;
+            }
+          });
+          unitPriorities[unit.id] = count > 0 ? sum / count : 0;
         });
 
         setAppState({ units, problems, records, unitPriorities });
