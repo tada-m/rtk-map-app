@@ -56,7 +56,9 @@ function UnitsProblemsTable() {
     setEditUnitId(u.id);
     setEditUnit({ ...u });
   };
-  const handleUnitEditChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUnitEditChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     setEditUnit({ ...editUnit, [e.target.name]: e.target.value });
   };
   const handleUnitEditSave = async () => {
@@ -127,6 +129,7 @@ function UnitsProblemsTable() {
               <th>PosY</th>
               <th>UnitName</th>
               <th>imagePath</th>
+              <th>teachingMaterials</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -171,6 +174,16 @@ function UnitsProblemsTable() {
                     />
                   </td>
                   <td>
+                    <textarea
+                      name="teachingMaterials"
+                      value={editUnit.teachingMaterials || ""}
+                      onChange={handleUnitEditChange}
+                      rows={4}
+                      style={{ width: 180 }}
+                      placeholder="授業スライド:...\n動画:...\nスタディサプリ:..."
+                    />
+                  </td>
+                  <td>
                     <button onClick={handleUnitEditSave}>保存</button>
                     <button onClick={() => setEditUnitId(null)}>
                       キャンセル
@@ -185,6 +198,15 @@ function UnitsProblemsTable() {
                   <td>{u.PosY}</td>
                   <td>{u.UnitName}</td>
                   <td>{u.imagePath}</td>
+                  <td
+                    style={{
+                      whiteSpace: "pre-line",
+                      maxWidth: 200,
+                      fontSize: 13,
+                    }}
+                  >
+                    {u.teachingMaterials}
+                  </td>
                   <td>
                     <button onClick={() => handleUnitEdit(u)}>編集</button>
                     <button onClick={() => handleUnitDelete(u.id)}>削除</button>
@@ -292,10 +314,13 @@ function UnitForm() {
     PosY: "",
     UnitName: "",
     imagePath: "",
+    teachingMaterials: "",
   });
   const [msg, setMsg] = useState("");
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
     setUnit({ ...unit, [e.target.name]: e.target.value });
   };
 
@@ -358,6 +383,14 @@ function UnitForm() {
         placeholder="imagePath (例: /images/physics/omori_tsuriai.png)"
         value={unit.imagePath}
         onChange={handleChange}
+      />
+      <textarea
+        name="teachingMaterials"
+        placeholder="授業スライド:...\n動画:...\nスタディサプリ:..."
+        value={unit.teachingMaterials}
+        onChange={handleChange}
+        rows={4}
+        style={{ width: 320, marginTop: 8 }}
       />
       <button type="submit">登録</button>
       <div>{msg}</div>

@@ -1,6 +1,77 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { marked } from "marked";
+import Button from "@mui/material/Button";
+import DialogActions from "@mui/material/DialogActions";
+import Stack from "@mui/material/Stack";
+// teachingMaterialsのURLをリンク化するコンポーネント
+// teachingMaterialsのURLをリンク化し、動画:タイトル,URL形式やオブジェクト配列形式に対応
+type TeachingMaterial = {
+  label: string;
+  title: string;
+  url?: string | null;
+};
+
+type LinkifiedTextProps =
+  | { text: string; materials?: undefined }
+  | { text?: undefined; materials: TeachingMaterial[] };
+
+function teachingMaterialsToMarkdown(materials: TeachingMaterial[]): string {
+  return materials
+    .map((mat) =>
+      mat.url
+        ? `- ${mat.label}：[${mat.title}](${mat.url})`
+        : `- ${mat.label}：${mat.title}`
+    )
+    .join("\n");
+}
+
+function LinkifiedText(props: LinkifiedTextProps) {
+  // オブジェクト配列優先、なければ従来のtext型
+  if (props.materials) {
+    const md = teachingMaterialsToMarkdown(props.materials);
+    // カスタムレンダラーでリンクの後ろにURLを出さない
+    const renderer = new marked.Renderer();
+    renderer.link = ({ href, text }) => {
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+    };
+    const html = marked(md, { renderer });
+    return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  }
+  // 従来のstring型（後方互換）
+  const text = props.text || "";
+  const lines = text.split(/\n/);
+  const urlRegex = /(https?:\/\/[\w\-._~:/?#[\]@!$&'()*+,;=%]+)/g;
+  return (
+    <div>
+      {lines.map((line, i) => {
+        // ラベル：[タイトル],URL の形式（カンマやスペースの有無も柔軟に対応）
+        const match = line.match(/^(.+?):\s*\[(.+?)\]\s*,?\s*(https?:\/\/.+)$/);
+        if (match) {
+          const label = match[1].trim();
+          const title = match[2].trim();
+          const url = match[3].trim();
+          return (
+            <div key={i}>
+              {label}:{" "}
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                {title}
+              </a>
+            </div>
+          );
+        }
+        // 通常のURLはリンク化
+        const html = line.replace(
+          urlRegex,
+          (url) =>
+            `<a href='${url}' target='_blank' rel='noopener noreferrer'>${url}</a>`
+        );
+        return <div key={i} dangerouslySetInnerHTML={{ __html: html }} />;
+      })}
+    </div>
+  );
+}
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
@@ -180,6 +251,14 @@ export default function DetailPanelPhysics({
   const [localRecords, setLocalRecords] = useState(appState.records);
   const [panelKey, setPanelKey] = useState(0);
 
+  // 教材ダイアログ用state
+  const [openTeachingDialog, setOpenTeachingDialog] = useState(false);
+  // string | TeachingMaterial[] 型で保持
+  const [teachingMaterials, setTeachingMaterials] = useState<
+    string | TeachingMaterial[]
+  >("");
+  const [loadingTeaching, setLoadingTeaching] = useState(false);
+
   useEffect(() => {
     setLocalRecords(appState.records);
   }, [appState.records]);
@@ -191,6 +270,41 @@ export default function DetailPanelPhysics({
 
   const unit = appState.units.find((u) => u.id === unitId);
   const unitProblems = appState.problems.filter((p) => p.UnitID === unitId);
+
+  // 教材ダイアログを開く
+  const handleOpenTeachingDialog = async () => {
+    setOpenTeachingDialog(true);
+    if (!teachingMaterials && unit) {
+      setLoadingTeaching(true);
+      try {
+        // FirestoreからteachingMaterials取得
+        const docRef = doc(db, "units", unit.id);
+        const docSnap = await import("firebase/firestore").then((m) =>
+          m.getDoc(docRef)
+        );
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          // 配列ならそのまま、なければstringで格納
+          if (Array.isArray(data.teachingMaterials)) {
+            setTeachingMaterials(data.teachingMaterials);
+          } else if (typeof data.teachingMaterials === "string") {
+            setTeachingMaterials(data.teachingMaterials);
+          } else {
+            setTeachingMaterials("教材情報が登録されていません。");
+          }
+        } else {
+          setTeachingMaterials("教材情報が見つかりませんでした。");
+        }
+      } catch (e) {
+        setTeachingMaterials("教材情報の取得に失敗しました。");
+      } finally {
+        setLoadingTeaching(false);
+      }
+    }
+  };
+  const handleCloseTeachingDialog = () => {
+    setOpenTeachingDialog(false);
+  };
 
   // 選択中の問題
   const selectedProblem = selectedProblemId
@@ -576,159 +690,211 @@ export default function DetailPanelPhysics({
   if (!unit) return null;
 
   return (
-    <Dialog
-      open={true}
-      onClose={handleClose}
-      maxWidth="lg"
-      fullWidth
-      PaperProps={{ style: { borderRadius: 16, minWidth: 900 } }}
-    >
-      <DialogTitle
-        sx={{
-          m: 0,
-          p: 2,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
+    <>
+      {/* 教材ダイアログ */}
+      <Dialog
+        open={openTeachingDialog}
+        onClose={handleCloseTeachingDialog}
+        maxWidth="sm"
+        fullWidth
       >
-        <span>{unit.UnitName}</span>
-        <IconButton
-          aria-label="close"
-          onClick={handleClose}
+        <DialogTitle
           sx={{
-            position: "absolute",
-            right: 8,
-            top: 8,
-            color: (theme) => theme.palette.grey[500],
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           }}
         >
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers sx={{ p: 0 }}>
-        <div style={{ display: "flex", flexDirection: "row", minHeight: 200 }}>
-          {/* 左側: 画像 */}
+          教材リスト
+          <IconButton onClick={handleCloseTeachingDialog} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          {loadingTeaching ? (
+            <div>読み込み中...</div>
+          ) : (
+            <LinkifiedText
+              {...(Array.isArray(teachingMaterials)
+                ? { materials: teachingMaterials }
+                : { text: teachingMaterials })}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseTeachingDialog}>閉じる</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 既存の詳細パネル本体 */}
+      <Dialog
+        open={true}
+        onClose={handleClose}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{ style: { borderRadius: 16, minWidth: 900 } }}
+      >
+        <DialogTitle
+          sx={{
+            m: 0,
+            p: 2,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span>{unit.UnitName}</span>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Button
+              variant="contained"
+              color="success"
+              size="small"
+              onClick={handleOpenTeachingDialog}
+              sx={{ minWidth: 120 }}
+            >
+              教材を確認する
+            </Button>
+            <IconButton
+              aria-label="close"
+              onClick={handleClose}
+              sx={{
+                color: (theme) => theme.palette.grey[500],
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </div>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 0 }}>
           <div
-            id="detail-image-container"
-            style={{
-              width: 400,
-              height: 300,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#fff",
-            }}
+            style={{ display: "flex", flexDirection: "row", minHeight: 200 }}
           >
-            {getImagePath() && (
-              <img
-                id="detail-image"
-                src={getImagePath()}
-                alt={unit.UnitName}
-                style={{
-                  maxWidth: "100%",
-                  maxHeight: "100%",
-                  width: "auto",
-                  height: "auto",
-                  display: "block",
-                }}
-              />
-            )}
-          </div>
-          {/* 右上: 関連知識ノード */}
-          <div style={{ flex: 1, marginLeft: 24 }}>
-            {selectedProblem && (
-              <div
-                style={{
-                  border: "2px solid #222",
-                  borderRadius: 16,
-                  padding: 12,
-                  marginBottom: 12,
-                }}
-              >
-                <div style={{ fontWeight: "bold", marginBottom: 8 }}>
-                  この問題に関連する知識
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                  {relatedUnits.map((u) => (
-                    <div
-                      key={u.id}
-                      style={{
-                        border: "1px solid #aaa",
-                        borderRadius: 8,
-                        padding: 8,
-                        width: 100,
-                        cursor: "pointer",
-                        textAlign: "center",
-                      }}
-                      onClick={() => {
-                        setSelectedProblemId(null); // unit遷移時は必ずunit画像を表示
-                        if (onUnitNodeClick) {
-                          onClose();
-                          onUnitNodeClick(u.id);
-                        }
-                      }}
-                    >
-                      <div style={{ fontSize: 13, fontWeight: 600 }}>
-                        {u.UnitName}
+            {/* 左側: 画像 */}
+            <div
+              id="detail-image-container"
+              style={{
+                width: 400,
+                height: 300,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#fff",
+              }}
+            >
+              {getImagePath() && (
+                <img
+                  id="detail-image"
+                  src={getImagePath()}
+                  alt={unit.UnitName}
+                  style={{
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                    width: "auto",
+                    height: "auto",
+                    display: "block",
+                  }}
+                />
+              )}
+            </div>
+            {/* 右上: 関連知識ノード */}
+            <div style={{ flex: 1, marginLeft: 24 }}>
+              {selectedProblem && (
+                <div
+                  style={{
+                    border: "2px solid #222",
+                    borderRadius: 16,
+                    padding: 12,
+                    marginBottom: 12,
+                  }}
+                >
+                  <div style={{ fontWeight: "bold", marginBottom: 8 }}>
+                    この問題に関連する知識
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                    {relatedUnits.map((u) => (
+                      <div
+                        key={u.id}
+                        style={{
+                          border: "1px solid #aaa",
+                          borderRadius: 8,
+                          padding: 8,
+                          width: 100,
+                          cursor: "pointer",
+                          textAlign: "center",
+                        }}
+                        onClick={() => {
+                          setSelectedProblemId(null); // unit遷移時は必ずunit画像を表示
+                          if (onUnitNodeClick) {
+                            onClose();
+                            onUnitNodeClick(u.id);
+                          }
+                        }}
+                      >
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>
+                          {u.UnitName}
+                        </div>
+                        {u.imagePath && (
+                          <img
+                            src={u.imagePath}
+                            alt={u.UnitName}
+                            style={{
+                              maxWidth: 80,
+                              maxHeight: 50,
+                              marginTop: 4,
+                            }}
+                          />
+                        )}
                       </div>
-                      {u.imagePath && (
-                        <img
-                          src={u.imagePath}
-                          alt={u.UnitName}
-                          style={{ maxWidth: 80, maxHeight: 50, marginTop: 4 }}
-                        />
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-        {/* 問題リスト */}
-        <h3 style={{ margin: "24px 0 8px 0", paddingLeft: 8 }}>問題リスト</h3>
-        <div className="table-wrapper" style={{ padding: 8 }}>
-          <table id="problem-table">
-            <thead>
-              <tr>
-                <th>問題番号</th>
-                <th>正解・不正解</th>
-                <th>理解状況</th>
-                <th>復習優先度</th>
-                <th>解いた回数</th>
-                <th>アクション</th>
-              </tr>
-            </thead>
-            <tbody>
-              {unitProblems.map((problem) => {
-                const record = localRecords[problem.id] || {
-                  attempts: 0,
-                  probremPriority: 0,
-                  history: [],
-                };
-                const lastRecord = record.history?.slice(-1)[0] || {};
-                const isSelected = selectedProblemId === problem.id;
-                return (
-                  <tr
-                    key={problem.id + "-" + panelKey}
-                    style={isSelected ? { background: "#ffeedd" } : {}}
-                    onClick={() => setSelectedProblemId(problem.id)}
-                  >
-                    <ProblemRow
-                      problem={problem}
-                      record={record}
-                      lastRecord={lastRecord}
-                      handleRecord={handleRecord}
-                      loading={loading}
-                    />
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </DialogContent>
-    </Dialog>
+          {/* 問題リスト */}
+          <h3 style={{ margin: "24px 0 8px 0", paddingLeft: 8 }}>問題リスト</h3>
+          <div className="table-wrapper" style={{ padding: 8 }}>
+            <table id="problem-table">
+              <thead>
+                <tr>
+                  <th>問題番号</th>
+                  <th>正解・不正解</th>
+                  <th>理解状況</th>
+                  <th>復習優先度</th>
+                  <th>解いた回数</th>
+                  <th>アクション</th>
+                </tr>
+              </thead>
+              <tbody>
+                {unitProblems.map((problem) => {
+                  const record = localRecords[problem.id] || {
+                    attempts: 0,
+                    probremPriority: 0,
+                    history: [],
+                  };
+                  const lastRecord = record.history?.slice(-1)[0] || {};
+                  const isSelected = selectedProblemId === problem.id;
+                  return (
+                    <tr
+                      key={problem.id + "-" + panelKey}
+                      style={isSelected ? { background: "#ffeedd" } : {}}
+                      onClick={() => setSelectedProblemId(problem.id)}
+                    >
+                      <ProblemRow
+                        problem={problem}
+                        record={record}
+                        lastRecord={lastRecord}
+                        handleRecord={handleRecord}
+                        loading={loading}
+                      />
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
