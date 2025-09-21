@@ -327,8 +327,12 @@ function TeacherDashboard() {
                       : "",
                   avgPriority: problemStats[p.id]?.avgPriority ?? 0,
                   avgAttempts: problemStats[p.id]?.avgAttempts ?? 0,
+                  imagePath: p.imagePath ?? "",
+                  dependsOn: p.DependsOn ?? p.DependsOn ?? "",
                 }))}
+              units={units}
               onClose={() => setSelectedUnitId(null)}
+              onUnitNodeClick={(unitId) => setSelectedUnitId(unitId)}
             />
           )}
         </div>

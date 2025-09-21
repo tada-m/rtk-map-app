@@ -5,6 +5,8 @@ import { marked } from "marked";
 import Button from "@mui/material/Button";
 import DialogActions from "@mui/material/DialogActions";
 import Stack from "@mui/material/Stack";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
 // teachingMaterialsのURLをリンク化するコンポーネント
 // teachingMaterialsのURLをリンク化し、動画:タイトル,URL形式やオブジェクト配列形式に対応
 type TeachingMaterial = {
@@ -180,36 +182,56 @@ function ProblemRow({
         </div>
       </td>
       <td>
-        <select
-          className="scs-select"
-          value={scs}
-          onChange={handleScsChange}
+        <Autocomplete
+          disablePortal
+          options={[
+            { label: "⭕（😀完璧）", value: "正解（完璧）" },
+            { label: "⭕（🙂微妙）", value: "正解（微妙）" },
+            { label: "❌（🤔惜しい）", value: "不正解（惜しい）" },
+            { label: "❌（😥まだまだ）", value: "不正解（まだまだ）" },
+          ]}
+          getOptionLabel={(option) =>
+            typeof option === "string" ? option : option.label
+          }
+          value={
+            [
+              { label: "⭕（😀完璧）", value: "正解（完璧）" },
+              { label: "⭕（🙂微妙）", value: "正解（微妙）" },
+              { label: "❌（🤔惜しい）", value: "不正解（惜しい）" },
+              { label: "❌（😥まだまだ）", value: "不正解（まだまだ）" },
+            ].find((opt) => opt.value === scs) || null
+          }
+          onChange={(_e, newValue) => {
+            const val = newValue ? newValue.value : "";
+            setScs(val);
+            setScsReason("");
+            setAvailableReasons(
+              scsReasonOptions[val as keyof typeof scsReasonOptions] || []
+            );
+          }}
           disabled={isRecorded}
-        >
-          <option value=""></option>
-          <option value="正解（完璧）"> ⭕（😀完璧）</option>
-          <option value="正解（微妙）"> ⭕（🙂微妙）</option>
-          <option value="不正解（惜しい）"> ❌（🤔惜しい）</option>
-          <option value="不正解（まだまだ）"> ❌（😥まだまだ）</option>
-        </select>
+          sx={{ width: 180 }}
+          renderInput={(params) => (
+            <TextField {...params} label="正解・不正解" size="small" />
+          )}
+        />
         <div className="previous-record">
           前回: {lastRecord?.scs || "記録なし"}
         </div>
       </td>
       <td>
-        <select
-          className="scsReason-select"
-          value={scsReason}
-          onChange={(e) => setScsReason(e.target.value)}
+        <Autocomplete
+          disablePortal
+          options={availableReasons}
+          getOptionLabel={(option) => option}
+          value={scsReason || null}
+          onChange={(_e, newValue) => setScsReason(newValue || "")}
           disabled={availableReasons.length === 0 || isRecorded}
-        >
-          <option value=""></option>
-          {availableReasons.map((reason) => (
-            <option key={reason} value={reason}>
-              {reason}
-            </option>
-          ))}
-        </select>
+          sx={{ width: 180 }}
+          renderInput={(params) => (
+            <TextField {...params} label="理解状況" size="small" />
+          )}
+        />
         <div className="previous-record">{lastRecord?.scsReason || ""}</div>
       </td>
       <td className="problemPriority-display">{displayPriority}</td>
