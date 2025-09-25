@@ -1,6 +1,9 @@
 .detailDialogContent {
   max-height: 90vh;
   overflow-y: auto;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @media (max-width: 900px) {

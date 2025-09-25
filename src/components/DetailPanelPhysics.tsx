@@ -18,6 +18,10 @@ import DialogActions from "@mui/material/DialogActions";
 import Stack from "@mui/material/Stack";
 import Autocomplete from "@mui/material/Autocomplete";
 import TextField from "@mui/material/TextField";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import Select, { SelectChangeEvent } from "@mui/material/Select";
 // teachingMaterialsのURLをリンク化するコンポーネント
 // teachingMaterialsのURLをリンク化し、動画:タイトル,URL形式やオブジェクト配列形式に対応
 type TeachingMaterial = {
@@ -148,7 +152,7 @@ function ProblemRow({
     setAvailableReasons([]);
   }, [problem.id]);
 
-  const handleScsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleScsChange = (e: SelectChangeEvent<string>) => {
     const newScs = e.target.value;
     setScs(newScs);
     setScsReason("");
@@ -188,56 +192,61 @@ function ProblemRow({
         </div>
       </td>
       <td>
-        <Autocomplete
-          disablePortal
-          options={[
-            { label: "⭕（😀完璧）", value: "正解（完璧）" },
-            { label: "⭕（🙂微妙）", value: "正解（微妙）" },
-            { label: "❌（🤔惜しい）", value: "不正解（惜しい）" },
-            { label: "❌（😥まだまだ）", value: "不正解（まだまだ）" },
-          ]}
-          getOptionLabel={(option) =>
-            typeof option === "string" ? option : option.label
-          }
-          value={
-            [
-              { label: "⭕（😀完璧）", value: "正解（完璧）" },
-              { label: "⭕（🙂微妙）", value: "正解（微妙）" },
-              { label: "❌（🤔惜しい）", value: "不正解（惜しい）" },
-              { label: "❌（😥まだまだ）", value: "不正解（まだまだ）" },
-            ].find((opt) => opt.value === scs) || null
-          }
-          onChange={(_e, newValue) => {
-            const val = newValue ? newValue.value : "";
-            setScs(val);
-            setScsReason("");
-            setAvailableReasons(
-              scsReasonOptions[val as keyof typeof scsReasonOptions] || []
-            );
-          }}
-          disabled={isRecorded}
-          sx={{ width: 180 }}
-          renderInput={(params) => (
-            <TextField {...params} label="正解・不正解" size="small" />
-          )}
-        />
+        <FormControl sx={{ minWidth: 180 }} size="small">
+          <InputLabel id={`scs-select-label-${problem.id}`}>
+            正解・不正解
+          </InputLabel>
+          <Select
+            labelId={`scs-select-label-${problem.id}`}
+            id={`scs-select-${problem.id}`}
+            value={scs}
+            label="正解・不正解"
+            onChange={(e: SelectChangeEvent) => {
+              const val = e.target.value;
+              setScs(val);
+              setScsReason("");
+              setAvailableReasons(
+                scsReasonOptions[val as keyof typeof scsReasonOptions] || []
+              );
+            }}
+            disabled={isRecorded}
+          >
+            <MenuItem value="">
+              <em>選択してください</em>
+            </MenuItem>
+            <MenuItem value="正解（完璧）">⭕（😀完璧）</MenuItem>
+            <MenuItem value="正解（微妙）">⭕（🙂微妙）</MenuItem>
+            <MenuItem value="不正解（惜しい）">❌（🤔惜しい）</MenuItem>
+            <MenuItem value="不正解（まだまだ）">❌（😥まだまだ）</MenuItem>
+          </Select>
+        </FormControl>
         <div className="previous-record">
           前回: {lastRecord?.scs || "記録なし"}
         </div>
       </td>
       <td>
-        <Autocomplete
-          disablePortal
-          options={availableReasons}
-          getOptionLabel={(option) => option}
-          value={scsReason || null}
-          onChange={(_e, newValue) => setScsReason(newValue || "")}
-          disabled={availableReasons.length === 0 || isRecorded}
-          sx={{ width: 180 }}
-          renderInput={(params) => (
-            <TextField {...params} label="理解状況" size="small" />
-          )}
-        />
+        <FormControl sx={{ minWidth: 180 }} size="small">
+          <InputLabel id={`scs-reason-select-label-${problem.id}`}>
+            理解状況
+          </InputLabel>
+          <Select
+            labelId={`scs-reason-select-label-${problem.id}`}
+            id={`scs-reason-select-${problem.id}`}
+            value={scsReason}
+            label="理解状況"
+            onChange={(e: SelectChangeEvent) => setScsReason(e.target.value)}
+            disabled={availableReasons.length === 0 || isRecorded}
+          >
+            <MenuItem value="">
+              <em>選択してください</em>
+            </MenuItem>
+            {availableReasons.map((reason) => (
+              <MenuItem key={reason} value={reason}>
+                {reason}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <div className="previous-record">{lastRecord?.scsReason || ""}</div>
       </td>
       <td className="problemPriority-display">{displayPriority}</td>
@@ -823,9 +832,9 @@ export default function DetailPanelPhysics({
           style: {
             borderRadius: 16,
             minWidth: 320,
-            maxWidth: "98vw",
-            width: "98vw",
-            margin: 0,
+            maxWidth: 900,
+            width: "100%",
+            margin: "0 auto",
           },
         }}
       >
