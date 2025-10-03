@@ -8,6 +8,11 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { db } from "../../firebase/clientAppPhysics";
+import FlowchartPhysicsMapAvg, {
+  Unit,
+  Problem,
+} from "../../components/FlowchartPhysicsMapAvg";
+import DetailPanelPhysicsAvg from "../../components/DetailPanelPhysicsAvg";
 import {
   collection,
   getDocs,
@@ -85,6 +90,15 @@ function TeacherDashboard() {
   const [allUnitPriorities, setAllUnitPriorities] = useState<
     { id: string; name: string; priority: number }[]
   >([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [unitPriorityMap, setUnitPriorityMap] = useState<{
+    [unitId: string]: number;
+  }>({});
+  const [problemStats, setProblemStats] = useState<{
+    [problemId: string]: { avgPriority: number; avgAttempts: number };
+  }>({});
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -100,34 +114,55 @@ function TeacherDashboard() {
     const fetchData = async () => {
       setLoading(true);
       // problems, unitsのID→表示名マップを作成
+      // problems, units取得
       const problemsSnap = await getDocs(collection(db, "problems"));
       const problemMap: { [id: string]: string } = {};
+      const problemsArr: Problem[] = [];
       problemsSnap.forEach((doc) => {
         const data = doc.data();
         problemMap[doc.id] = data.ProblemNumber || doc.id;
+        // ProblemNumberは文字列のまま保持
+        problemsArr.push({
+          id: doc.id,
+          UnitID: data.UnitID,
+          ProblemNumber: data.ProblemNumber ?? "",
+          imagePath: data.imagePath,
+          DependsOn: data.DependsOn,
+          page: data.page,
+        });
       });
       setProblemIdMap(problemMap);
+      setProblems(problemsArr);
 
       const unitsSnap = await getDocs(collection(db, "units"));
       const unitMap: { [id: string]: string } = {};
-      const allUnits: { id: string; name: string; priority: number }[] = [];
+      const unitsArr: Unit[] = [];
       unitsSnap.forEach((doc) => {
         const data = doc.data();
         unitMap[doc.id] = data.UnitName || doc.id;
-        allUnits.push({
+        // PosX,PosYを数値型に変換
+        unitsArr.push({
           id: doc.id,
-          name: data.UnitName || doc.id,
-          priority: 0,
+          UnitName: data.UnitName,
+          DependsOn: data.DependsOn,
+          PosX: Number(data.PosX),
+          PosY: Number(data.PosY),
+          imagePath: data.imagePath,
+          group: data.group,
         });
       });
       setUnitIdMap(unitMap);
+      setUnits(unitsArr);
 
-      // 各ユーザーのunitPriorities取得後、全unitのpriorityを集計
+      // 各ユーザーのunitPriorities・problemRecords取得後、全unit/problemのpriority/attempts平均を集計
       const usersCol = collection(db, "users");
       const usersSnap = await getDocs(usersCol);
       const userList: UserData[] = [];
       // unitId→priority[]
-      const unitPriorityMap: { [id: string]: number[] } = {};
+      const unitPriorityMapTmp: { [id: string]: number[] } = {};
+      // problemId→priority[], attempts[]
+      const problemPriorityMap: { [id: string]: number[] } = {};
+      const problemAttemptsMap: { [id: string]: number[] } = {};
       for (const userDoc of usersSnap.docs) {
         const userData = userDoc.data();
         // studentData対応
@@ -142,7 +177,6 @@ function TeacherDashboard() {
         );
         const learningLog = learningLogSnap.docs.map((d) => {
           const log = d.data();
-          // problemIdをProblemNumberに変換
           return {
             ...log,
             problemId: problemMap[log.problemId] || log.problemId,
@@ -156,6 +190,17 @@ function TeacherDashboard() {
         const problemRecordsDocNames = problemRecordsSnap.docs.map(
           (d) => problemMap[d.id] || d.id
         );
+        // problemごとにpriority, attemptsを集計
+        problemRecordsSnap.docs.forEach((d) => {
+          const rec = d.data();
+          const pid = d.id;
+          if (!problemPriorityMap[pid]) problemPriorityMap[pid] = [];
+          if (!problemAttemptsMap[pid]) problemAttemptsMap[pid] = [];
+          if (typeof rec.probremPriority === "number")
+            problemPriorityMap[pid].push(rec.probremPriority);
+          if (typeof rec.attempts === "number")
+            problemAttemptsMap[pid].push(rec.attempts);
+        });
         // unitPriorities
         const unitPrioritiesSnap = await getDocs(
           collection(userDoc.ref, "unitPriorities")
@@ -168,8 +213,8 @@ function TeacherDashboard() {
         unitPrioritiesSnap.docs.forEach((d) => {
           const unitId = d.id;
           const priority = d.data().priority;
-          if (!unitPriorityMap[unitId]) unitPriorityMap[unitId] = [];
-          unitPriorityMap[unitId].push(priority);
+          if (!unitPriorityMapTmp[unitId]) unitPriorityMapTmp[unitId] = [];
+          unitPriorityMapTmp[unitId].push(priority);
         });
         userList.push({
           uid: userDoc.id,
@@ -185,13 +230,34 @@ function TeacherDashboard() {
         });
       }
       // 各unitのpriority平均を計算
-      const allUnitsWithPriority = allUnits.map((u) => {
-        const arr = unitPriorityMap[u.id] || [];
+      const allUnitsWithPriority = unitsArr.map((u) => {
+        const arr = unitPriorityMapTmp[u.id] || [];
         const avg =
           arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-        return { ...u, priority: avg };
+        // nameプロパティも付与
+        return { ...u, name: u.UnitName, priority: avg };
       });
       setAllUnitPriorities(allUnitsWithPriority);
+      // unitPriorityMap: unitId→平均
+      const unitPriorityMapObj: { [unitId: string]: number } = {};
+      allUnitsWithPriority.forEach((u) => {
+        unitPriorityMapObj[u.id] = u.priority;
+      });
+      setUnitPriorityMap(unitPriorityMapObj);
+      // problemStats: problemId→{avgPriority, avgAttempts}
+      const problemStatsObj: {
+        [problemId: string]: { avgPriority: number; avgAttempts: number };
+      } = {};
+      problemsArr.forEach((p) => {
+        const arrP = problemPriorityMap[p.id] || [];
+        const arrA = problemAttemptsMap[p.id] || [];
+        const avgP =
+          arrP.length > 0 ? arrP.reduce((a, b) => a + b, 0) / arrP.length : 0;
+        const avgA =
+          arrA.length > 0 ? arrA.reduce((a, b) => a + b, 0) / arrA.length : 0;
+        problemStatsObj[p.id] = { avgPriority: avgP, avgAttempts: avgA };
+      });
+      setProblemStats(problemStatsObj);
       setUsers(userList);
       setLoading(false);
     };
@@ -237,27 +303,39 @@ function TeacherDashboard() {
   return (
     <div style={{ padding: 24 }}>
       <h1>教員用ダッシュボード</h1>
-      {/* 全unitのpriorityデバッグ表示 */}
-      <div style={{ marginBottom: 24 }}>
-        <h3>全unitのpriority（全ユーザー平均）</h3>
-        <table border={1} cellPadding={6} style={{ marginBottom: 12 }}>
-          <thead>
-            <tr>
-              <th>UnitID</th>
-              <th>UnitName</th>
-              <th>priority（平均）</th>
-            </tr>
-          </thead>
-          <tbody>
-            {allUnitPriorities.map((u) => (
-              <tr key={u.id}>
-                <td>{u.id}</td>
-                <td>{u.name}</td>
-                <td>{u.priority.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div style={{ marginBottom: 32 }}>
+        <h3>全ユーザー平均マップ</h3>
+        <div style={{ position: "relative" }}>
+          <FlowchartPhysicsMapAvg
+            units={units}
+            problems={problems}
+            unitPriorityMap={unitPriorityMap}
+            problemStats={problemStats}
+            onUnitClick={(unitId) => setSelectedUnitId(unitId)}
+          />
+          {selectedUnitId && (
+            <DetailPanelPhysicsAvg
+              unitName={
+                units.find((u) => u.id === selectedUnitId)?.UnitName || ""
+              }
+              problems={problems
+                .filter((p) => p.UnitID === selectedUnitId)
+                .map((p) => ({
+                  problemNumber:
+                    p.ProblemNumber !== undefined && p.ProblemNumber !== null
+                      ? String(p.ProblemNumber)
+                      : "",
+                  avgPriority: problemStats[p.id]?.avgPriority ?? 0,
+                  avgAttempts: problemStats[p.id]?.avgAttempts ?? 0,
+                  imagePath: p.imagePath ?? "",
+                  dependsOn: p.DependsOn ?? p.DependsOn ?? "",
+                }))}
+              units={units}
+              onClose={() => setSelectedUnitId(null)}
+              onUnitNodeClick={(unitId) => setSelectedUnitId(unitId)}
+            />
+          )}
+        </div>
       </div>
       <div style={{ marginBottom: 16 }}>
         <input
@@ -302,9 +380,9 @@ function TeacherDashboard() {
         <table border={1} cellPadding={8}>
           <thead>
             <tr>
+              <th>クラス</th>
               <th>学籍番号</th>
               <th>名前</th>
-              <th>クラス</th>
               <th>メールアドレス</th>
               <th>学習記録件数</th>
               <th>問題記録件数</th>
@@ -314,9 +392,9 @@ function TeacherDashboard() {
           <tbody>
             {filteredUsers.map((user) => (
               <tr key={user.uid}>
+                <td>{user.class}</td>
                 <td>{user.studentId}</td>
                 <td>{user.name}</td>
-                <td>{user.class}</td>
                 <td>{user.email}</td>
                 <td>{user.learningLog.length}</td>
                 <td>{user.problemRecords.length}</td>

@@ -1,10 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+interface DetailPanelPhysicsProps {
+  user: User;
+  unitId: string;
+  appState: AppState;
+  setAppState: React.Dispatch<React.SetStateAction<AppState>>;
+  onClose: () => void;
+  onUnitNodeClick?: (unitId: string) => void;
+  initialProblemId?: string | null;
+}
+import { getDocs } from "firebase/firestore";
+
+import { useState, useEffect, useCallback } from "react";
 import { marked } from "marked";
 import Button from "@mui/material/Button";
 import DialogActions from "@mui/material/DialogActions";
 import Stack from "@mui/material/Stack";
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import FormControl from "@mui/material/FormControl";
+import Select, { SelectChangeEvent } from "@mui/material/Select";
 // teachingMaterialsのURLをリンク化するコンポーネント
 // teachingMaterialsのURLをリンク化し、動画:タイトル,URL形式やオブジェクト配列形式に対応
 type TeachingMaterial = {
@@ -87,17 +104,12 @@ import {
 import { User } from "firebase/auth";
 import { db } from "../firebase/clientAppPhysics";
 import { AppState, ProblemRecord, Unit, Problem } from "./FlowchartPhysics";
-import { useEnqueueSnackbar } from "./Toast";
 
-interface DetailPanelPhysicsProps {
-  user: User;
-  unitId: string;
-  appState: AppState;
-  setAppState: React.Dispatch<React.SetStateAction<AppState>>;
-  onClose: () => void;
-  onUnitNodeClick?: (unitId: string) => void;
-  initialProblemId?: string | null;
-}
+// getDocsは既にfirebase/firestoreからimportされているため重複削除
+// getDocsは既にimportされているため重複削除
+
+// ここは削除（本体は297行目付近に残す）
+import { useEnqueueSnackbar } from "./Toast";
 
 interface ProblemRowProps {
   problem: Problem;
@@ -140,7 +152,7 @@ function ProblemRow({
     setAvailableReasons([]);
   }, [problem.id]);
 
-  const handleScsChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleScsChange = (e: SelectChangeEvent<string>) => {
     const newScs = e.target.value;
     setScs(newScs);
     setScsReason("");
@@ -180,36 +192,61 @@ function ProblemRow({
         </div>
       </td>
       <td>
-        <select
-          className="scs-select"
-          value={scs}
-          onChange={handleScsChange}
-          disabled={isRecorded}
-        >
-          <option value=""></option>
-          <option value="正解（完璧）"> ⭕（😀完璧）</option>
-          <option value="正解（微妙）"> ⭕（🙂微妙）</option>
-          <option value="不正解（惜しい）"> ❌（🤔惜しい）</option>
-          <option value="不正解（まだまだ）"> ❌（😥まだまだ）</option>
-        </select>
+        <FormControl sx={{ minWidth: 180 }} size="small">
+          <InputLabel id={`scs-select-label-${problem.id}`}>
+            正解・不正解
+          </InputLabel>
+          <Select
+            labelId={`scs-select-label-${problem.id}`}
+            id={`scs-select-${problem.id}`}
+            value={scs}
+            label="正解・不正解"
+            onChange={(e: SelectChangeEvent) => {
+              const val = e.target.value;
+              setScs(val);
+              setScsReason("");
+              setAvailableReasons(
+                scsReasonOptions[val as keyof typeof scsReasonOptions] || []
+              );
+            }}
+            disabled={isRecorded}
+          >
+            <MenuItem value="">
+              <em>選択してください</em>
+            </MenuItem>
+            <MenuItem value="正解（完璧）">⭕（😀完璧）</MenuItem>
+            <MenuItem value="正解（微妙）">⭕（🙂微妙）</MenuItem>
+            <MenuItem value="不正解（惜しい）">❌（🤔惜しい）</MenuItem>
+            <MenuItem value="不正解（まだまだ）">❌（😥まだまだ）</MenuItem>
+          </Select>
+        </FormControl>
         <div className="previous-record">
           前回: {lastRecord?.scs || "記録なし"}
         </div>
       </td>
       <td>
-        <select
-          className="scsReason-select"
-          value={scsReason}
-          onChange={(e) => setScsReason(e.target.value)}
-          disabled={availableReasons.length === 0 || isRecorded}
-        >
-          <option value=""></option>
-          {availableReasons.map((reason) => (
-            <option key={reason} value={reason}>
-              {reason}
-            </option>
-          ))}
-        </select>
+        <FormControl sx={{ minWidth: 180 }} size="small">
+          <InputLabel id={`scs-reason-select-label-${problem.id}`}>
+            理解状況
+          </InputLabel>
+          <Select
+            labelId={`scs-reason-select-label-${problem.id}`}
+            id={`scs-reason-select-${problem.id}`}
+            value={scsReason}
+            label="理解状況"
+            onChange={(e: SelectChangeEvent) => setScsReason(e.target.value)}
+            disabled={availableReasons.length === 0 || isRecorded}
+          >
+            <MenuItem value="">
+              <em>選択してください</em>
+            </MenuItem>
+            {availableReasons.map((reason) => (
+              <MenuItem key={reason} value={reason}>
+                {reason}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         <div className="previous-record">{lastRecord?.scsReason || ""}</div>
       </td>
       <td className="problemPriority-display">{displayPriority}</td>
@@ -243,12 +280,39 @@ export default function DetailPanelPhysics({
   onUnitNodeClick,
   initialProblemId = null,
 }: DetailPanelPhysicsProps) {
+  // Firestoreから最新のproblemRecordsとunitPrioritiesを再取得し、appStateを更新
+  const refreshRecordsAndPriorities = useCallback(async () => {
+    const userDocRef = doc(db, "users", user.uid);
+    // problemRecords
+    const problemRecordsSnapshot = await getDocs(
+      collection(userDocRef, "problemRecords")
+    );
+    const newRecords: { [problemId: string]: ProblemRecord } = {};
+    problemRecordsSnapshot.forEach((doc) => {
+      newRecords[doc.id] = doc.data() as ProblemRecord;
+    });
+    // unitPriorities
+    const unitPrioritiesSnapshot = await getDocs(
+      collection(userDocRef, "unitPriorities")
+    );
+    const newUnitPriorities: { [unitId: string]: number } = {};
+    unitPrioritiesSnapshot.forEach((doc) => {
+      const data = doc.data();
+      if (typeof data.priority === "number") {
+        newUnitPriorities[doc.id] = data.priority;
+      }
+    });
+    setAppState((prev: AppState) => ({
+      ...prev,
+      records: newRecords,
+      unitPriorities: { ...prev.unitPriorities, ...newUnitPriorities },
+    }));
+  }, [user, setAppState]);
   // 選択中の問題ID
   const [selectedProblemId, setSelectedProblemId] = useState<string | null>(
     initialProblemId
   );
   const [loading, setLoading] = useState(false);
-  const [localRecords, setLocalRecords] = useState(appState.records);
   const [panelKey, setPanelKey] = useState(0);
 
   // 教材ダイアログ用state
@@ -258,10 +322,6 @@ export default function DetailPanelPhysics({
     string | TeachingMaterial[]
   >("");
   const [loadingTeaching, setLoadingTeaching] = useState(false);
-
-  useEffect(() => {
-    setLocalRecords(appState.records);
-  }, [appState.records]);
 
   const handleClose = () => {
     setPanelKey((k) => k + 1);
@@ -335,7 +395,7 @@ export default function DetailPanelPhysics({
     newScsReason: string
   ) => {
     const newRecords: AppState["records"] = JSON.parse(
-      JSON.stringify(localRecords)
+      JSON.stringify(appState.records)
     );
     if (!newRecords[problemId]) {
       newRecords[problemId] = { attempts: 0, history: [], probremPriority: 0 };
@@ -343,11 +403,11 @@ export default function DetailPanelPhysics({
     newRecords[problemId].attempts = (newRecords[problemId].attempts || 0) + 1;
     let newPriority = newRecords[problemId].probremPriority;
     const currentProblem = appState.problems.find((p) => p.id === problemId);
-    if (!currentProblem) return newRecords;
+    if (!currentProblem) return { newRecords };
     const currentUnit = appState.units.find(
       (u) => u.id === currentProblem.UnitID
     );
-    if (!currentUnit) return newRecords;
+    if (!currentUnit) return { newRecords };
 
     // "正解（完璧）"を選択した場合、その問題の復習優先度を0にする。
     if (newScs === "正解（完璧）") {
@@ -493,6 +553,20 @@ export default function DetailPanelPhysics({
           }
         }
       }
+      // ★historyにpush
+      if (newRecords[problemId].history) {
+        newRecords[problemId].history.push({
+          scs: newScs,
+          scsReason: newScsReason,
+          timestamp: new Date(),
+        });
+      } else {
+        newRecords[problemId].history = [
+          { scs: newScs, scsReason: newScsReason, timestamp: new Date() },
+        ];
+      }
+      // uniqueRelatedUnitIdsも返す
+      return { newRecords, relatedUnitIds: uniqueRelatedUnitIds };
     }
     // "不正解（まだまだ）"を選択した場合、その問題の復習優先度を2上げ、その問題のunitに属する他の問題の中で主観的な理解状況が"正解（完璧）"以外の問題の復習優先度を1上げる。関連する知識全ての問題の中で、主観的な理解状況が"正解（完璧）"以外の問題の復習優先度を2上げる。
     if (newScs === "不正解（まだまだ）") {
@@ -551,14 +625,30 @@ export default function DetailPanelPhysics({
           }
         }
       }
+      // ★historyにpush
+      if (newRecords[problemId].history) {
+        newRecords[problemId].history.push({
+          scs: newScs,
+          scsReason: newScsReason,
+          timestamp: new Date(),
+        });
+      } else {
+        newRecords[problemId].history = [
+          { scs: newScs, scsReason: newScsReason, timestamp: new Date() },
+        ];
+      }
+      // uniqueRelatedUnitIdsも返す
+      newRecords[problemId].probremPriority = newPriority;
+      return { newRecords, relatedUnitIds: uniqueRelatedUnitIds };
     }
     newRecords[problemId].probremPriority = newPriority;
-    return newRecords;
+    return { newRecords };
   };
 
   const calculateUnitPriorities = (
     problemId: string,
-    updatedRecords: AppState["records"]
+    updatedRecords: AppState["records"],
+    relatedUnitIds?: string[]
   ) => {
     const updatedUnitPriorities: { [unitId: string]: number } = {};
     const problemToUnitMap = appState.problems.reduce((map, p) => {
@@ -570,15 +660,21 @@ export default function DetailPanelPhysics({
       return map;
     }, {} as { [key: string]: any });
 
-    const currentUnitId = problemToUnitMap[problemId];
-    const currentUnit = unitMap[currentUnitId];
-    const unitsToUpdate = [currentUnitId];
-    if (currentUnit.DependsOn) {
-      unitsToUpdate.push(
-        ...String(currentUnit.DependsOn)
-          .split(",")
-          .map((id) => id.trim())
-      );
+    // 更新対象unitリスト
+    let unitsToUpdate: string[] = [];
+    if (relatedUnitIds && relatedUnitIds.length > 0) {
+      unitsToUpdate = [...relatedUnitIds];
+    } else {
+      const currentUnitId = problemToUnitMap[problemId];
+      const currentUnit = unitMap[currentUnitId];
+      unitsToUpdate = [currentUnitId];
+      if (currentUnit && currentUnit.DependsOn) {
+        unitsToUpdate.push(
+          ...String(currentUnit.DependsOn)
+            .split(",")
+            .map((id) => id.trim())
+        );
+      }
     }
     const uniqueUnitsToUpdate = [...new Set(unitsToUpdate)];
 
@@ -623,13 +719,22 @@ export default function DetailPanelPhysics({
     }
     setLoading(true);
     try {
-      const updatedRecords = calculateAllPriorities(problemId, scs, scsReason);
+      const result = calculateAllPriorities(problemId, scs, scsReason);
+      const updatedRecords = result.newRecords;
+      const relatedUnitIds = result.relatedUnitIds;
       const { updatedUnitPriorities } = calculateUnitPriorities(
         problemId,
-        updatedRecords
+        updatedRecords,
+        relatedUnitIds
       );
-
-      setLocalRecords(updatedRecords);
+      setAppState((prevState) => ({
+        ...prevState,
+        records: updatedRecords,
+        unitPriorities: {
+          ...prevState.unitPriorities,
+          ...updatedUnitPriorities,
+        },
+      }));
 
       const userDocRef = doc(db, "users", user.uid);
       const batch = writeBatch(db);
@@ -667,20 +772,11 @@ export default function DetailPanelPhysics({
       });
 
       await batch.commit();
-
-      setAppState((prevState) => ({
-        ...prevState,
-        records: updatedRecords,
-        unitPriorities: {
-          ...prevState.unitPriorities,
-          ...updatedUnitPriorities,
-        },
-      }));
       return true;
     } catch (error) {
       console.error("記録エラー:", error);
       enqueueSnackbar("記録中にエラーが発生しました。", { variant: "error" });
-      setLocalRecords(appState.records);
+      // setLocalRecordsは廃止
       return false;
     } finally {
       setLoading(false);
@@ -730,9 +826,17 @@ export default function DetailPanelPhysics({
       <Dialog
         open={true}
         onClose={handleClose}
-        maxWidth="lg"
+        maxWidth={false}
         fullWidth
-        PaperProps={{ style: { borderRadius: 16, minWidth: 900 } }}
+        PaperProps={{
+          style: {
+            borderRadius: 16,
+            minWidth: 320,
+            maxWidth: 900,
+            width: "100%",
+            margin: "0 auto",
+          },
+        }}
       >
         <DialogTitle
           sx={{
@@ -765,7 +869,7 @@ export default function DetailPanelPhysics({
             </IconButton>
           </div>
         </DialogTitle>
-        <DialogContent dividers sx={{ p: 0 }}>
+        <DialogContent dividers sx={{ p: 0 }} className="detailDialogContent">
           <div
             style={{ display: "flex", flexDirection: "row", minHeight: 200 }}
           >
@@ -797,7 +901,15 @@ export default function DetailPanelPhysics({
               )}
             </div>
             {/* 右上: 関連知識ノード */}
-            <div style={{ flex: 1, marginLeft: 24 }}>
+            <div
+              style={{
+                flex: 1,
+                marginLeft: 24,
+                minWidth: 0,
+                maxWidth: "420px",
+                boxSizing: "border-box",
+              }}
+            >
               {selectedProblem && (
                 <div
                   style={{
@@ -867,7 +979,7 @@ export default function DetailPanelPhysics({
               </thead>
               <tbody>
                 {unitProblems.map((problem) => {
-                  const record = localRecords[problem.id] || {
+                  const record = appState.records[problem.id] || {
                     attempts: 0,
                     probremPriority: 0,
                     history: [],

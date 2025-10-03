@@ -232,7 +232,6 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
     const width = (maxX - minX + 1) * (nodeW + gapX) - gapX;
     const height = (maxY - minY + 1) * (nodeH + gapY) - gapY;
     return { group, left, top, width, height };
-    return { group, left, top, width, height };
   });
 
   // ヘッダ部分に検索窓を追加
@@ -279,6 +278,54 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
               </div>
             )
         )}
+
+        {/* グループ間の矢印（三角画像） */}
+        {(() => {
+          // 「つり合いの式」グループの中央y座標を基準にする
+          const idxBase = groupNames.indexOf("つり合いの式");
+          let baseY = 0;
+          if (groupFrames[idxBase]) {
+            baseY = groupFrames[idxBase].top + groupFrames[idxBase].height / 2;
+          } else {
+            // fallback: 2番目グループの中央y
+            baseY = groupFrames[1]
+              ? groupFrames[1].top + groupFrames[1].height / 2
+              : 300;
+          }
+          const arrowW = 40;
+          const arrowH = 40;
+          const arrows = [];
+          // 0→1, 1→2, 2→3, 3→4 の4本のみ描画
+          for (let i = 0; i < 4; i++) {
+            const frameA = groupFrames[i];
+            const frameB = groupFrames[i + 1];
+            if (!frameA || !frameB) continue;
+            const ax = frameA.left + frameA.width;
+            const bx = frameB.left;
+            const cx = (ax + bx) / 2 - arrowW / 2;
+            const cy = baseY - arrowH / 2;
+            arrows.push(
+              <img
+                key={`arrow-${i}`}
+                src="/images/materials/arrow.png"
+                alt="arrow"
+                style={{
+                  position: "absolute",
+                  left: cx,
+                  top: cy,
+                  width: arrowW,
+                  height: arrowH,
+                  transform: `rotate(0deg)`,
+                  zIndex: 20,
+                  pointerEvents: "none",
+                  opacity: 0.85,
+                }}
+              />
+            );
+          }
+          return arrows;
+        })()}
+
         {/* ノード本体 */}
         {appState.units.map((unit) => {
           const unitPriority = appState.unitPriorities[unit.id];

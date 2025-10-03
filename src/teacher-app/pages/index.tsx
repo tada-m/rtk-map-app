@@ -177,9 +177,9 @@ export default function TeacherDashboard() {
         <table border={1} cellPadding={8}>
           <thead>
             <tr>
+              <th>クラス</th>
               <th>学籍番号</th>
               <th>名前</th>
-              <th>クラス</th>
               <th>メールアドレス</th>
               <th>学習記録件数</th>
               <th>問題記録件数</th>
@@ -189,9 +189,9 @@ export default function TeacherDashboard() {
           <tbody>
             {filteredUsers.map((user) => (
               <tr key={user.uid}>
+                <td>{user.class}</td>
                 <td>{user.studentId}</td>
                 <td>{user.name}</td>
-                <td>{user.class}</td>
                 <td>{user.email}</td>
                 <td>{user.learningLog.length}</td>
                 <td>{user.problemRecords.length}</td>
