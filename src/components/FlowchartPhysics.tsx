@@ -234,6 +234,21 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
     return { group, left, top, width, height };
   });
 
+  // 達成率計算
+  const totalProblems = appState.problems.length;
+  let solvedProblems = 0;
+  if (totalProblems > 0) {
+    solvedProblems = appState.problems.filter((problem) => {
+      const rec = appState.records[problem.id];
+      if (!rec || !rec.history || rec.history.length === 0) return false;
+      // 最後の履歴が"正解（完璧）"
+      const last = rec.history[rec.history.length - 1];
+      return last.scs === "正解（完璧）";
+    }).length;
+  }
+  const achievementRate =
+    totalProblems > 0 ? Math.floor((solvedProblems / totalProblems) * 100) : 0;
+
   // ヘッダ部分に検索窓を追加
   return (
     <>
@@ -247,6 +262,23 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
             setSearchSelectedProblem(problem);
           }}
         />
+      </div>
+      {/* 右上に達成率を表示 */}
+      <div
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 32,
+          zIndex: 100,
+          fontWeight: "bold",
+          fontSize: 20,
+          background: "rgba(255,255,255,0.9)",
+          borderRadius: 8,
+          padding: "6px 18px",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        }}
+      >
+        復習達成率 {achievementRate}%
       </div>
       <div
         id="flowchart-container"
