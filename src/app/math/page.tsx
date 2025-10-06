@@ -58,21 +58,21 @@ export default function MathPage() {
   return (
     <div id="app">
       <header>
-        <h1>数学学習フローチャート</h1>
+        <h1>RTK Map Application</h1>
         <div id="auth-container">
           {user ? (
             <>
               <p id="user-info">
-                ようこそ, <span id="user-email">{user.email}</span> さん
+                Welcome, <span id="user-email">{user.email}</span>
               </p>
               <button
                 onClick={() => setProfileOpen(true)}
                 style={{ marginRight: 8 }}
               >
-                プロフィール変更
+                Change Profile
               </button>
               <button id="logout-btn" onClick={handleLogout}>
-                ログアウト
+                Logout
               </button>
             </>
           ) : (

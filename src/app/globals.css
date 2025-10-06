@@ -75,8 +75,8 @@ main {
 }
 /* --- ▼▼▼ 修正点: ノードのサイズを固定 ▼▼▼ --- */
 .flowchart-node {
-  width: 150px; /* 横幅を固定 170px→150px */
-  height: 80px; /* 高さを固定 100px→80px */
+  width: 155px; /* 横幅を固定 170px→155px */
+  height: 90px; /* 高さを固定 100px→90px */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -129,7 +129,7 @@ main {
 }
 .panel-content {
   width: 95%; /* 90→95 */
-  max-width: 900px; /* 700→900 */
+  max-width: 1000px; /* 700→900 */
   background: white;
   border-radius: 12px;
   box-shadow: var(--panel-shadow);

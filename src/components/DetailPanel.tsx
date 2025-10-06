@@ -103,10 +103,10 @@ function ProblemRow({
           disabled={isRecorded}
         >
           <option value=""></option>
-          <option value="正解（完璧）"> ⭕（😀完璧）</option>
-          <option value="正解（微妙）"> ⭕（🙂微妙）</option>
-          <option value="不正解（惜しい）"> ❌（🤔惜しい）</option>
-          <option value="不正解（まだまだ）"> ❌（😥まだまだ）</option>
+          <option value="正解（完璧）"> ⭕（😀Perfect）</option>
+          <option value="正解（微妙）"> ⭕（🙂Partial）</option>
+          <option value="不正解（惜しい）"> ❌（🤔Almost）</option>
+          <option value="不正解（まだまだ）"> ❌（😥Incorrect）</option>
         </select>
         <div className="previous-record">
           前回: {lastRecord?.scs || "記録なし"}
@@ -143,7 +143,7 @@ function ProblemRow({
               : {}
           }
         >
-          {isRecorded ? "記録完了" : loading ? "記録中..." : "記録"}
+          {isRecorded ? "Record Complete" : loading ? "Recording..." : "Record"}
         </button>
       </td>
     </tr>
@@ -513,17 +513,17 @@ export default function DetailPanel({
               <img id="detail-image" src={unit.imagePath} alt={unit.UnitName} />
             </div>
           )}
-          <h3>問題リスト</h3>
+          <h3>Problem List</h3>
           <div className="table-wrapper">
             <table id="problem-table">
               <thead>
                 <tr>
-                  <th>問題番号</th>
-                  <th>正解・不正解</th>
-                  <th>主観的な理解状況</th>
-                  <th>問題復習優先度</th>
-                  <th>解いた回数</th>
-                  <th>アクション</th>
+                  <th>Problem Number</th>
+                  <th>Correct/Incorrect</th>
+                  <th>Subjective comprehension</th>
+                  <th>Problem Review Priority</th>
+                  <th>Attempts</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
