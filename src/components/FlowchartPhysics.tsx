@@ -246,8 +246,6 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
       return last.scs === "正解（完璧）";
     }).length;
   }
-  const achievementRate =
-    totalProblems > 0 ? Math.floor((solvedProblems / totalProblems) * 100) : 0;
 
   // ヘッダ部分に検索窓を追加
   return (
@@ -278,7 +276,7 @@ export default function FlowchartPhysics({ user }: FlowchartPhysicsProps) {
           boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
         }}
       >
-        復習達成率 {achievementRate}%
+        復習達成率 {solvedProblems}問/{totalProblems}問
       </div>
       <div
         id="flowchart-container"
